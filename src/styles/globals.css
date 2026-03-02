@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ── Brand custom properties ──
+ * These defaults are overridden at runtime by the BrandThemeProvider
+ * component, which reads values from site_config.brand_colors.
+ */
+:root {
+  /* Brand colors (defaults — overridden by brand-theme-provider) */
+  --brand-primary: #2563eb;
+  --brand-secondary: #1e40af;
+  --brand-accent: #f59e0b;
+  --brand-background: #ffffff;
+  --brand-text: #111827;
+
+  /* Layout tokens */
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-background: #0a0a0a;
+    --brand-text: #ededed;
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* ── Tailwind v4 theme mapping ── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ── Base styles ── */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  min-height: 100dvh;
+}
