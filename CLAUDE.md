@@ -21,7 +21,7 @@ AI Solo Starter Kit is a white-label, AI-powered business platform for solo crea
 ## Directory Structure
 
 ```
-project-solo/
+ai-solo-starter-kit/
 ├── middleware.ts              # Auth routing + role-based access control
 ├── src/
 │   ├── app/                   # Next.js App Router pages
