@@ -2,7 +2,7 @@
 
 Your AI-powered business platform — a complete business-in-a-box for solo creators and entrepreneurs.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL&envDescription=Only+Supabase+keys+are+needed+to+deploy.+Add+Stripe%2C+Resend%2C+and+Anthropic+keys+later+in+Vercel+Settings+%3E+Environment+Variables.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL&envDescription=In+Supabase%2C+click+Connect+%3E+API+Keys.+SUPABASE_URL+%3D+Project+URL.+ANON_KEY+%3D+Anon+Key+(Legacy).+SERVICE_ROLE_KEY+%3D+click+API+settings+%3E+service_role.+DATABASE_URL+%3D+Connection+String+tab+%3E+Transaction+Pooler+URI.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
 
 ---
 
