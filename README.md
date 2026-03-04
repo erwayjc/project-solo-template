@@ -2,7 +2,7 @@
 
 Your AI-powered business platform — a complete business-in-a-box for solo creators and entrepreneurs.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL%2CNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY%2CSTRIPE_SECRET_KEY%2CRESEND_API_KEY%2CANTHROPIC_API_KEY%2CNEXT_PUBLIC_SITE_URL&envDescription=Set+up+your+Supabase+project+first%2C+then+grab+API+keys+from+each+service+dashboard.+See+the+linked+guide+for+step-by-step+instructions.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL&envDescription=Only+Supabase+keys+are+needed+to+deploy.+Add+Stripe%2C+Resend%2C+and+Anthropic+keys+later+in+Vercel+Settings+%3E+Environment+Variables.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
 
 ---
 
@@ -41,18 +41,25 @@ Open [http://localhost:3000](http://localhost:3000) to see your site.
 
 Copy `.env.example` to `.env.local` and fill in each value:
 
+### Required for deploy
+
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase: **Connect** button > **API Keys** tab > **Project URL** |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase: **Connect** > **API Keys** tab > **Anon Key (Legacy)** — use the JWT key, _not_ the Publishable Key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase: **Connect** > **API Keys** tab > click **API settings** link > `service_role` key |
 | `DATABASE_URL` | Supabase: **Connect** > **Connection String** tab > Type: URI, Method: **Transaction Pooler** |
+
+### Add after deploy (in Vercel Settings > Environment Variables)
+
+| Variable | Description |
+|----------|-------------|
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe: [Dashboard](https://dashboard.stripe.com/test/apikeys) > Publishable key |
 | `STRIPE_SECRET_KEY` | Stripe: [Dashboard](https://dashboard.stripe.com/test/apikeys) > Secret key |
 | `RESEND_API_KEY` | Resend: [Dashboard](https://resend.com/api-keys) > API Keys |
 | `ANTHROPIC_API_KEY` | Anthropic: [Console](https://console.anthropic.com/settings/keys) > API Keys |
+| `NEXT_PUBLIC_SITE_URL` | Your deployed URL (e.g., `https://my-solo-business.vercel.app`) — auto-detected on Vercel if not set |
 | `BUFFER_ACCESS_TOKEN` | _(Optional)_ Buffer access token for social publishing |
-| `NEXT_PUBLIC_SITE_URL` | Your deployed URL (set after deploy, e.g., `https://my-solo-business.vercel.app`) |
 | `ENCRYPTION_KEY` | Auto-generated during admin setup — do not set manually |
 
 ## Supabase Setup

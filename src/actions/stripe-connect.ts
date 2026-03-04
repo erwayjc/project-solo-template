@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
+import { getSiteUrl } from '@/lib/utils/url'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -30,9 +31,7 @@ export async function initiateStripeConnect(): Promise<{ url: string }> {
   const clientId = process.env.STRIPE_CLIENT_ID
   if (!clientId) throw new Error('STRIPE_CLIENT_ID is not configured')
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-    || 'http://localhost:3000'
+  const baseUrl = getSiteUrl()
 
   const redirectUri = `${baseUrl}/api/auth/stripe/callback`
 

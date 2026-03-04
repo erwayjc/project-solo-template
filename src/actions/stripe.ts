@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/client'
+import { getSiteUrl } from '@/lib/utils/url'
 
 /**
  * Create a Stripe Checkout Session for a given price.
@@ -23,7 +24,7 @@ export async function createCheckoutSession(
     throw new Error('Customer email is required')
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const baseUrl = getSiteUrl()
 
   // If the user is authenticated, check for an existing Stripe customer ID
   let customerId: string | undefined
@@ -161,7 +162,7 @@ export async function createCustomerPortalSession(
     throw new Error('Access denied: customer ID does not belong to you')
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const baseUrl = getSiteUrl()
 
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,

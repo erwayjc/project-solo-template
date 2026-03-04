@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe/client'
 import { resend } from '@/lib/resend/client'
 import { buildTestimonialRequestEmail } from '@/lib/resend/templates'
+import { getSiteUrl } from '@/lib/utils/url'
 
 export async function POST(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -146,9 +147,7 @@ export async function POST(request: NextRequest) {
           const siteName = (siteConfig?.site_name as string) || 'Our Platform'
           const fromEmail =
             (siteConfig?.legal_contact_email as string) || 'noreply@example.com'
-          const portalUrl = process.env.NEXT_PUBLIC_SITE_URL
-            ? `${process.env.NEXT_PUBLIC_SITE_URL}/portal`
-            : '/portal'
+          const portalUrl = `${getSiteUrl()}/portal`
 
           for (const userId of newUserIds) {
             // Insert testimonial request

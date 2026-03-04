@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getSiteUrl } from '@/lib/utils/url'
 
 export async function signIn(email: string, password: string) {
   const supabase = await createClient()
@@ -54,7 +55,7 @@ export async function resetPassword(email: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`,
+    redirectTo: `${getSiteUrl()}/auth/callback?next=/reset-password`,
   })
 
   if (error) {
