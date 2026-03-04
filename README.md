@@ -43,16 +43,16 @@ Copy `.env.example` to `.env.local` and fill in each value:
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL (Settings > API) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key (Settings > API) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (Settings > API) — keep secret |
-| `DATABASE_URL` | Supabase connection string (Settings > Database > Connection String > Transaction Pooler) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (Developers > API keys) |
-| `STRIPE_SECRET_KEY` | Stripe secret key — keep secret |
-| `RESEND_API_KEY` | Resend API key (Settings > API Keys) |
-| `ANTHROPIC_API_KEY` | Anthropic API key (Console > API Keys) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase: **Connect** button > **API Keys** tab > **Project URL** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase: **Connect** > **API Keys** tab > **Anon Key (Legacy)** — use the JWT key, _not_ the Publishable Key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase: **Connect** > **API Keys** tab > click **API settings** link > `service_role` key |
+| `DATABASE_URL` | Supabase: **Connect** > **Connection String** tab > Type: URI, Method: **Transaction Pooler** |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe: [Dashboard](https://dashboard.stripe.com/test/apikeys) > Publishable key |
+| `STRIPE_SECRET_KEY` | Stripe: [Dashboard](https://dashboard.stripe.com/test/apikeys) > Secret key |
+| `RESEND_API_KEY` | Resend: [Dashboard](https://resend.com/api-keys) > API Keys |
+| `ANTHROPIC_API_KEY` | Anthropic: [Console](https://console.anthropic.com/settings/keys) > API Keys |
 | `BUFFER_ACCESS_TOKEN` | _(Optional)_ Buffer access token for social publishing |
-| `NEXT_PUBLIC_SITE_URL` | Your deployed site URL (e.g., `https://yourdomain.com`) |
+| `NEXT_PUBLIC_SITE_URL` | Your deployed URL (set after deploy, e.g., `https://my-solo-business.vercel.app`) |
 | `ENCRYPTION_KEY` | Auto-generated during admin setup — do not set manually |
 
 ## Supabase Setup
