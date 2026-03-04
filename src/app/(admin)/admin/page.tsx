@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOnboardingProgress } from "@/actions/onboarding";
+import { GettingStartedGuide } from "@/components/dashboard/getting-started-guide";
 
 export const metadata = { title: "Dashboard - Admin" };
 
@@ -10,6 +12,7 @@ export default async function AdminDashboard() {
     { count: customerCount },
     { count: ticketCount },
     { count: postCount },
+    progress,
   ] = await Promise.all([
     supabase.from("leads").select("*", { count: "exact", head: true }),
     supabase
@@ -24,6 +27,7 @@ export default async function AdminDashboard() {
       .from("blog_posts")
       .select("*", { count: "exact", head: true })
       .eq("status", "published"),
+    getOnboardingProgress(),
   ]);
 
   const metrics = [
@@ -36,6 +40,13 @@ export default async function AdminDashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">CEO Dashboard</h1>
+
+      {!progress.guide_dismissed && (
+        <div className="mt-6">
+          <GettingStartedGuide progress={progress} />
+        </div>
+      )}
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((m) => (
           <div key={m.label} className="rounded-lg border bg-white p-6">

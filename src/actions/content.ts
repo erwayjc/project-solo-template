@@ -178,6 +178,92 @@ export async function updateBlogPost(
   return data as BlogPost
 }
 
+export async function checkBlogSlugAvailable(slug: string, excludeId?: string): Promise<boolean> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  let query = supabase
+    .from('blog_posts')
+    .select('id', { count: 'exact', head: true })
+    .eq('slug', slug)
+
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+
+  const { count } = await query
+  return (count ?? 0) === 0
+}
+
+export async function getBlogPost(id: string): Promise<BlogPost> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to fetch blog post: ${error.message}`)
+  }
+
+  return data as BlogPost
+}
+
+export async function deleteBlogPost(id: string): Promise<void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { error } = await supabase.from('blog_posts').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete blog post: ${error.message}`)
+  }
+}
+
 // ── Content Queue (Social Media) ──
 
 export async function getContentQueue(filters?: {
@@ -306,6 +392,174 @@ export async function approveSocialContent(id: string): Promise<ContentQueue> {
 
   if (error) {
     throw new Error(`Failed to approve content: ${error.message}`)
+  }
+
+  return data as ContentQueue
+}
+
+export async function rejectSocialContent(id: string): Promise<ContentQueue> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('content_queue')
+    .update({ status: 'draft' })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to reject content: ${error.message}`)
+  }
+
+  return data as ContentQueue
+}
+
+export async function updateSocialContent(
+  id: string,
+  contentData: {
+    content?: string
+    platform?: string
+    scheduled_for?: string | null
+    media_urls?: string[]
+  }
+): Promise<ContentQueue> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  // Only allow updating known safe fields
+  const safeUpdate: Record<string, unknown> = {}
+  if (contentData.content !== undefined) safeUpdate.content = contentData.content
+  if (contentData.platform !== undefined) safeUpdate.platform = contentData.platform
+  if (contentData.scheduled_for !== undefined) safeUpdate.scheduled_for = contentData.scheduled_for
+  if (contentData.media_urls !== undefined) safeUpdate.media_urls = contentData.media_urls
+
+  const { data, error } = await supabase
+    .from('content_queue')
+    .update(safeUpdate)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to update content: ${error.message}`)
+  }
+
+  return data as ContentQueue
+}
+
+export async function deleteSocialContent(id: string): Promise<void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { error } = await supabase.from('content_queue').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete content: ${error.message}`)
+  }
+}
+
+export async function rescheduleSocialContent(
+  id: string,
+  scheduledFor: string
+): Promise<ContentQueue> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  // Atomically reschedule and auto-approve drafts in a single update
+  // First try to update drafts (sets status to approved)
+  const { data: draftData, error: draftError } = await supabase
+    .from('content_queue')
+    .update({ scheduled_for: scheduledFor, status: 'approved' })
+    .eq('id', id)
+    .eq('status', 'draft')
+    .select()
+    .maybeSingle()
+
+  if (draftError) {
+    throw new Error(`Failed to reschedule content: ${draftError.message}`)
+  }
+
+  if (draftData) return draftData as ContentQueue
+
+  // Not a draft — just update the schedule
+  const { data, error } = await supabase
+    .from('content_queue')
+    .update({ scheduled_for: scheduledFor })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to reschedule content: ${error.message}`)
   }
 
   return data as ContentQueue

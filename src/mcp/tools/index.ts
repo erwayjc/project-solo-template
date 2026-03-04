@@ -17,6 +17,8 @@ import { tools as announcementsTools } from './announcements'
 import { tools as mediaTools } from './media'
 import { tools as pwaTools } from './pwa'
 import { tools as mcpManagementTools } from './mcp-management'
+import { tools as testimonialTools } from './testimonials'
+import { tools as memoryTools } from './memory'
 
 /**
  * Flat array of every internal tool, ordered by domain.
@@ -35,6 +37,8 @@ const allTools: ToolDefinition[] = [
   ...mediaTools,
   ...pwaTools,
   ...mcpManagementTools,
+  ...testimonialTools,
+  ...memoryTools,
 ]
 
 /**

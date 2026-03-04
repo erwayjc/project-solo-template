@@ -29,7 +29,7 @@ insert into public.products (id, name, description, price_amount, currency, pric
 values
   (
     'a1b2c3d4-0001-4000-8000-000000000001',
-    'Online Course',
+    'Online Course (Sample)',
     'Complete online course with lifetime access to all modules, community, and certificate of completion.',
     29700,
     'usd',
@@ -42,7 +42,7 @@ values
   ),
   (
     'a1b2c3d4-0002-4000-8000-000000000002',
-    'Monthly Membership',
+    'Monthly Membership (Sample)',
     'All-access monthly membership including course content, live Q&A calls, community, and new content every month.',
     4700,
     'usd',
@@ -301,7 +301,7 @@ values
 insert into public.email_sequences (id, name, trigger, is_active)
 values (
   'e1b2c3d4-0001-4000-8000-000000000001',
-  'Welcome Series',
+  'Welcome Series (Sample)',
   'opt_in',
   true
 );
@@ -344,7 +344,7 @@ values
     'dev-agent',
     'Your AI developer and business manager. Has access to all tools and all data. This is your primary interface for running your business.',
     E'You are the Dev Agent — the user''s AI developer and business manager.\nYou have access to ALL tools and ALL database tables.\nAlways confirm destructive actions before executing.\nUse the Master Context Document from site_config to understand the business.\nBe proactive: suggest improvements, flag issues, and anticipate needs.\nKeep responses practical and action-oriented.\nWhen unsure, ask clarifying questions rather than guessing.\nFormat responses with clear structure: headings, bullets, code blocks as needed.\n-- Full system prompt loaded from agents/prompts/dev-agent.ts at runtime --',
-    '{update_site_config,update_page_content,upload_file,create_module,update_module,create_lesson,update_lesson,delete_lesson,get_course_structure,create_email_sequence,update_email_sequence,create_broadcast,send_broadcast,get_email_stats,get_leads,update_lead_status,get_customers,get_revenue_stats,create_blog_post,update_blog_post,create_social_content,approve_social_content,get_content_calendar,get_support_tickets,respond_to_ticket,resolve_ticket,create_agent,update_agent,delete_agent,list_agents,get_dashboard_summary,get_analytics,generate_weekly_briefing}',
+    '{update_site_config,update_page_content,upload_file,create_module,update_module,create_lesson,update_lesson,delete_lesson,get_course_structure,create_email_sequence,update_email_sequence,create_broadcast,send_broadcast,get_email_stats,get_leads,update_lead_status,get_customers,get_revenue_stats,create_blog_post,update_blog_post,create_social_content,approve_social_content,get_content_calendar,get_support_tickets,respond_to_ticket,resolve_ticket,create_agent,update_agent,delete_agent,list_agents,get_dashboard_summary,get_analytics,generate_weekly_briefing,delegate_to_agent}',
     '{internal,supabase,stripe}',
     '{profiles,site_config,products,modules,lessons,lesson_progress,leads,pages,email_sequences,email_sequence_steps,email_sends,broadcasts,blog_posts,content_queue,support_tickets,agents,agent_conversations,announcements,media,mcp_connections}',
     '🛠️',
@@ -457,12 +457,48 @@ values
   );
 
 -- ---------------------------------------------------------------------------
+-- Testimonials (3 sample testimonials)
+-- ---------------------------------------------------------------------------
+insert into public.testimonials (id, name, quote, role, company, image_url, sort_order, is_published)
+values
+  (
+    '91b2c3d4-0001-4000-8000-000000000001',
+    'Alex R.',
+    'I launched my entire business in a weekend. The AI agents handle things I used to spend hours on.',
+    'Course Creator',
+    null,
+    null,
+    1,
+    true
+  ),
+  (
+    '91b2c3d4-0002-4000-8000-000000000002',
+    'Jordan M.',
+    'The email sequences and content engine run on autopilot. I focus on what I love — teaching.',
+    'Coach',
+    null,
+    null,
+    2,
+    true
+  ),
+  (
+    '91b2c3d4-0003-4000-8000-000000000003',
+    'Sam K.',
+    'Within 30 days I had my first paying customers. The AI agents saved me at least 20 hours a week.',
+    'Consultant',
+    null,
+    null,
+    3,
+    true
+  );
+
+-- ---------------------------------------------------------------------------
 -- Blog Post (1 sample published post)
 -- ---------------------------------------------------------------------------
 insert into public.blog_posts (id, title, slug, content, excerpt, featured_image, tags, seo, status, published_at)
 values (
-  'g1b2c3d4-0001-4000-8000-000000000001',
-  'Welcome to Our Blog',
+  '71b2c3d4-0001-4000-8000-000000000001',
+  'Welcome to Our Blog (Sample)',
   'welcome',
   E'# Welcome to Our Blog\n\nWe''re excited to launch our blog! This is where we''ll share insights, tips, and strategies to help you build a successful one-person business.\n\n## What to Expect\n\nHere''s what we''ll be covering:\n\n### Practical Tutorials\nStep-by-step guides you can follow and implement immediately. No fluff, no theory without application.\n\n### Industry Insights\nWhat''s working right now in the world of solopreneurship, AI-powered business, and digital products.\n\n### Behind the Scenes\nHonest looks at what we''re building, what''s working, and what we''re learning along the way.\n\n### Student Spotlights\nReal stories from people in our community who are building incredible businesses.\n\n## Stay Connected\n\nThe best way to stay updated is to [join our email list](/opt-in). We send a weekly digest of new posts plus exclusive content you won''t find on the blog.\n\nHave a topic you''d like us to cover? Let us know in the comments or reach out through our [support page](/portal/support).\n\nHere''s to building something great together.',
   'We''re excited to launch our blog! Here''s what to expect: practical tutorials, industry insights, behind-the-scenes looks, and student spotlights.',
@@ -478,10 +514,82 @@ values (
 -- ---------------------------------------------------------------------------
 insert into public.announcements (id, title, content, type, is_published, published_at)
 values (
-  'h1b2c3d4-0001-4000-8000-000000000001',
-  'Welcome!',
+  '81b2c3d4-0001-4000-8000-000000000001',
+  'Welcome! (Sample)',
   'Welcome to the platform! We''re glad you''re here. Explore the course modules to get started, and don''t hesitate to reach out to support if you need anything.',
   'info',
   true,
   now()
 );
+
+-- ============ SAMPLE ONBOARDING CONTENT ============
+-- All sample content UUIDs for reference (used by clearSampleContent action):
+--   Products:        a1b2c3d4-0001-4000-8000-000000000001, a1b2c3d4-0002-4000-8000-000000000002
+--   Modules:         b1b2c3d4-0001-4000-8000-000000000001, b1b2c3d4-0002-4000-8000-000000000002
+--   Lessons:         c1b2c3d4-0001-4000-8000-000000000001 through c1b2c3d4-0004-4000-8000-000000000004
+--   Email Sequences: e1b2c3d4-0001-4000-8000-000000000001
+--   Email Steps:     f1b2c3d4-0001-4000-8000-000000000001 through f1b2c3d4-0003-4000-8000-000000000003
+--   Blog Posts:      71b2c3d4-0001-4000-8000-000000000001, b10a1b2c-0002-4000-8000-000000000002, b10a1b2c-0003-4000-8000-000000000003
+--   Content Queue:   c0a11b2c-0001-4000-8000-000000000001, c0a11b2c-0002-4000-8000-000000000002, c0a11b2c-0003-4000-8000-000000000003
+--   Testimonials:    91b2c3d4-0001-4000-8000-000000000001 through 91b2c3d4-0003-4000-8000-000000000003
+--   Announcements:   81b2c3d4-0001-4000-8000-000000000001
+
+-- ---------------------------------------------------------------------------
+-- Additional Blog Posts (2 new sample posts)
+-- ---------------------------------------------------------------------------
+insert into public.blog_posts (id, title, slug, content, excerpt, featured_image, tags, seo, status, published_at)
+values
+  (
+    'b10a1b2c-0002-4000-8000-000000000002',
+    'Your First Blog Post (Sample)',
+    'first-blog-post-template',
+    E'# How to Write Your First Blog Post\n\nCongratulations on starting your blog! Here''s a simple structure that works for any niche:\n\n## 1. Start With a Hook\n\nOpen with a question, a bold statement, or a relatable problem your audience faces.\n\n## 2. Deliver Value in the Body\n\nBreak your content into scannable sections with clear headings. Use:\n\n- **Lists** for steps or tips\n- **Bold text** for key takeaways\n- **Short paragraphs** for readability\n\n## 3. End With a Call to Action\n\nTell your reader what to do next. Join your email list? Try a technique? Share the post?\n\n## Your Turn\n\nUse this template as a starting point. Replace this content with your own expertise, and hit publish. Your first post doesn''t have to be perfect — it just has to exist.\n\n*Pro tip: aim for 500-800 words for your first post. You can always go deeper later.*',
+    'A ready-to-use template showing you exactly how to structure your first blog post. Replace this sample content with your own expertise.',
+    '',
+    '{template, getting-started, sample}',
+    '{"meta_title": "How to Write Your First Blog Post", "meta_description": "A simple template for writing your first blog post. Copy this structure and replace with your own content.", "keywords": "blog template, first post, content creation"}'::jsonb,
+    'published',
+    now()
+  ),
+  (
+    'b10a1b2c-0003-4000-8000-000000000003',
+    'Ideas for Your Next Post (Sample)',
+    'blog-post-ideas',
+    E'# 10 Blog Post Ideas to Get You Started\n\nStaring at a blank page? Here are 10 proven blog post formats that work in any niche:\n\n## 1. The \"How To\" Guide\nTeach your audience how to do something specific. Step-by-step posts are the most shared content format online.\n\n## 2. The Listicle\n\"7 Tools I Use Every Day\" or \"5 Mistakes to Avoid\" — numbered lists are easy to write and easy to read.\n\n## 3. The Case Study\nShare a real result. What did you (or a client) achieve? What was the process?\n\n## 4. The Behind-the-Scenes\nShow your process, your workspace, or your daily routine. People love authenticity.\n\n## 5. The Opinion Piece\nTake a stand on something in your industry. Respectful contrarian takes generate engagement.\n\n## 6. The Beginner''s Guide\nCreate the resource you wish existed when you were starting out.\n\n## 7. The Resource Round-Up\nCurate the best tools, books, or resources in your niche.\n\n## 8. The FAQ Post\nAnswer the questions you get asked most often.\n\n## 9. The Personal Story\nShare a lesson you learned the hard way. Vulnerability builds trust.\n\n## 10. The Interview\nFeature someone your audience admires. Their audience discovers you too.\n\n---\n\n*Pick one format and start writing. You can always edit later — the hardest part is the first draft.*',
+    'Stuck on what to write? Here are 10 proven blog post formats that work in any niche to get your content engine running.',
+    '',
+    '{ideas, content-strategy, sample}',
+    '{"meta_title": "10 Blog Post Ideas to Get You Started", "meta_description": "Proven blog post formats that work in any niche. From how-to guides to case studies, find your next content idea.", "keywords": "blog ideas, content ideas, blog formats"}'::jsonb,
+    'draft',
+    null
+  );
+
+-- ---------------------------------------------------------------------------
+-- Content Queue (3 sample social posts)
+-- ---------------------------------------------------------------------------
+insert into public.content_queue (id, platform, content, media_urls, status, scheduled_for)
+values
+  (
+    'c0a11b2c-0001-4000-8000-000000000001',
+    'twitter',
+    'Just launched my new platform! Building a one-person business has never been easier with AI handling the heavy lifting. More coming soon... (Sample)',
+    '{}',
+    'draft',
+    now() + interval '1 day'
+  ),
+  (
+    'c0a11b2c-0002-4000-8000-000000000002',
+    'linkedin',
+    E'I used to think building a business meant hiring a team of 10.\n\nTurns out, AI agents can handle marketing, support, and content — while I focus on what I do best: teaching.\n\nHere''s what my AI-powered stack looks like:\n- Content creation & scheduling\n- Email nurture sequences\n- Customer support triage\n- Sales funnel optimization\n\nThe solo creator era is here. (Sample)',
+    '{}',
+    'draft',
+    now() + interval '2 days'
+  ),
+  (
+    'c0a11b2c-0003-4000-8000-000000000003',
+    'instagram',
+    'Behind the scenes of my AI-powered business setup. One dashboard. Six AI agents. Zero overwhelm. This is what the future of solopreneurship looks like. (Sample)',
+    '{}',
+    'draft',
+    now() + interval '3 days'
+  );

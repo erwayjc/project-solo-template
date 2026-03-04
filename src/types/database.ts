@@ -26,6 +26,7 @@ export type AgentConversation = Tables['agent_conversations']['Row']
 export type McpConnection = Tables['mcp_connections']['Row']
 export type Announcement = Tables['announcements']['Row']
 export type Media = Tables['media']['Row']
+export type Testimonial = Tables['testimonials']['Row']
 
 // ── Insert types (what you pass to an INSERT) ──
 export type ProfileInsert = Tables['profiles']['Insert']
@@ -40,6 +41,8 @@ export type ContentQueueInsert = Tables['content_queue']['Insert']
 export type SupportTicketInsert = Tables['support_tickets']['Insert']
 export type AgentInsert = Tables['agents']['Insert']
 
+export type TestimonialInsert = Tables['testimonials']['Insert']
+
 // ── Update types (what you pass to an UPDATE) ──
 export type ProfileUpdate = Tables['profiles']['Update']
 export type SiteConfigUpdate = Tables['site_config']['Update']
@@ -48,6 +51,15 @@ export type ModuleUpdate = Tables['modules']['Update']
 export type LessonUpdate = Tables['lessons']['Update']
 export type BlogPostUpdate = Tables['blog_posts']['Update']
 export type AgentUpdate = Tables['agents']['Update']
+export type TestimonialUpdate = Tables['testimonials']['Update']
+export type TestimonialRequest = Tables['testimonial_requests']['Row']
+export type TestimonialRequestInsert = Tables['testimonial_requests']['Insert']
+export type AgentMemoryRow = Tables['agent_memories']['Row']
+export type AgentMemoryInsert = Tables['agent_memories']['Insert']
+export type AgentMemoryUpdate = Tables['agent_memories']['Update']
+export type AgentHandoffRow = Tables['agent_handoffs']['Row']
+export type AgentHandoffInsert = Tables['agent_handoffs']['Insert']
+export type AgentHandoffUpdate = Tables['agent_handoffs']['Update']
 
 // Re-export the Database type itself
 export type { Database }

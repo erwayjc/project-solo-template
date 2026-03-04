@@ -110,3 +110,45 @@ All mutations use Next.js Server Actions (`"use server"`) in `src/actions/`. Eac
 - **Env vars**: public vars prefixed with `NEXT_PUBLIC_`; secrets are server-only
 - **Service clients**: Stripe, Anthropic, and Resend clients are lazy-initialized via Proxy in `src/lib/*/client.ts` — never eagerly construct SDK clients at module scope
 - **JSONB columns**: when inserting/updating JSONB fields via Supabase, cast typed objects with `as unknown as Json` (import `Json` from `@/lib/supabase/types`)
+
+## Guardrails for Customization
+
+**This section protects critical systems from accidental breaks. Do NOT remove or weaken these rules.**
+
+### Database Safety Rules
+
+- NEVER run `DROP TABLE` on any existing table — always create new tables or add columns
+- NEVER run `DROP COLUMN` on `profiles`, `site_config`, `products`, `purchases`, `agents`, or `mcp_connections` — these are critical system tables that the platform depends on
+- NEVER remove or modify the `handle_new_user()` trigger function — it auto-creates profile rows on signup; removing it breaks all new user registration
+- NEVER remove or modify the `is_admin()` function — it prevents RLS recursion on the profiles table; removing it breaks all admin database access
+- NEVER disable Row Level Security on any table — RLS is the authorization layer; disabling it exposes all data to all users
+- NEVER remove RLS policies without understanding their purpose — read the policy definition first and explain its function to the user before making changes
+- ALWAYS remind the user to back up their database via the Supabase dashboard before running any migration that modifies existing tables
+- ALWAYS use additive migrations (ADD COLUMN, CREATE TABLE) rather than destructive ones (DROP, ALTER TYPE, RENAME COLUMN)
+- Be aware of CASCADE foreign keys: deleting rows from `profiles`, `modules`, `email_sequences`, or `agents` will cascade-delete related child records
+
+### Auth & Middleware Rules
+
+- NEVER remove or bypass the `updateSession()` call in `middleware.ts` — it refreshes auth cookies on every request; removing it breaks all authenticated routes
+- NEVER remove the role-based checks in `middleware.ts` (the `role !== 'admin'` and `role !== 'customer'` guards) — they protect admin and portal routes from unauthorized access
+- NEVER remove the `setup_complete` check in `middleware.ts` — it prevents access to admin routes before setup is finished
+- NEVER mix up Supabase clients: use `createClient()` (server) for authenticated user operations, `createAdminClient()` (admin) only for webhooks and setup. Using admin client for user operations bypasses RLS and creates security vulnerabilities.
+- NEVER modify `src/lib/supabase/middleware.ts` cookie handling — the cookie sync logic is what propagates sessions across requests
+
+### Webhook & Integration Rules
+
+- NEVER modify the Stripe webhook signature verification in `src/app/api/webhooks/stripe/route.ts` — it prevents fraudulent webhook calls; the purchase recording flow depends on it
+- NEVER remove the Resend webhook signature verification — it prevents unauthorized email event processing
+- NEVER change webhook routes from POST to other HTTP methods
+- NEVER add auth middleware to `/api/webhooks/*` routes — they verify signatures internally; adding auth blocks legitimate webhook calls
+
+### Environment & Config Rules
+
+- NEVER hardcode API keys, secrets, or credentials in source code — always use environment variables
+- When adding new environment variables to `.env.local`, ALWAYS add the corresponding empty placeholder to `.env.example`
+- NEVER remove existing environment variables from `.env.example` without confirming the feature they support has been fully removed
+
+### Verification Rule
+
+- After making changes to database schema, middleware, webhooks, or environment variables, ALWAYS call `/api/health` and verify all checks pass before considering the work complete
+- If `/api/health` returns `degraded` or `critical` status, investigate and fix before proceeding

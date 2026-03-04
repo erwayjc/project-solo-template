@@ -6,6 +6,7 @@ import { resend } from '@/lib/resend/client'
 import { buildBroadcastEmail } from '@/lib/resend/templates'
 import type {
   EmailSequence,
+  EmailSequenceStep,
   Broadcast,
 } from '@/types/database'
 import type { Json } from '@/lib/supabase/types'
@@ -358,4 +359,374 @@ export async function getEmailStats(): Promise<{
     openRate: totalDelivered > 0 ? Math.round((totalOpened / totalDelivered) * 100) : 0,
     clickRate: totalDelivered > 0 ? Math.round((clicked / totalDelivered) * 100) : 0,
   }
+}
+
+// ── Sequence Steps ──
+
+export async function getAllSequenceSteps(): Promise<EmailSequenceStep[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('email_sequence_steps')
+    .select('*')
+    .order('step_number', { ascending: true })
+
+  if (error) {
+    throw new Error(`Failed to fetch all sequence steps: ${error.message}`)
+  }
+
+  return data as EmailSequenceStep[]
+}
+
+export async function getSequenceSteps(sequenceId: string): Promise<EmailSequenceStep[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('email_sequence_steps')
+    .select('*')
+    .eq('sequence_id', sequenceId)
+    .order('step_number', { ascending: true })
+
+  if (error) {
+    throw new Error(`Failed to fetch sequence steps: ${error.message}`)
+  }
+
+  return data as EmailSequenceStep[]
+}
+
+export async function createSequenceStep(stepData: {
+  sequence_id: string
+  step_number: number
+  subject: string
+  body: string
+  delay_hours: number
+}): Promise<EmailSequenceStep> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('email_sequence_steps')
+    .insert(stepData)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to create sequence step: ${error.message}`)
+  }
+
+  return data as EmailSequenceStep
+}
+
+export async function updateSequenceStep(
+  id: string,
+  stepData: Partial<{ subject: string; body: string; delay_hours: number }>
+): Promise<EmailSequenceStep> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { data, error } = await supabase
+    .from('email_sequence_steps')
+    .update(stepData)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to update sequence step: ${error.message}`)
+  }
+
+  return data as EmailSequenceStep
+}
+
+export async function deleteSequenceStep(id: string): Promise<void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { error } = await supabase.from('email_sequence_steps').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete sequence step: ${error.message}`)
+  }
+}
+
+export async function deleteSequence(id: string): Promise<void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  // Delete steps first, then the sequence
+  const { error: stepsError } = await supabase
+    .from('email_sequence_steps')
+    .delete()
+    .eq('sequence_id', id)
+
+  if (stepsError) {
+    throw new Error(`Failed to delete sequence steps: ${stepsError.message}`)
+  }
+
+  const { error } = await supabase.from('email_sequences').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete sequence: ${error.message}`)
+  }
+}
+
+// ── Extended Broadcasts ──
+
+export async function updateBroadcast(
+  id: string,
+  broadcastData: Partial<{
+    subject: string
+    body: string
+    audience_filter: Record<string, unknown>
+    scheduled_for: string | null
+  }>
+): Promise<Broadcast> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  // Prevent editing broadcasts that have already been sent
+  const { data: existing, error: fetchError } = await supabase
+    .from('broadcasts')
+    .select('status')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !existing) {
+    throw new Error('Broadcast not found')
+  }
+
+  if (existing.status === 'sent' || existing.status === 'sending') {
+    throw new Error('Cannot edit a broadcast that has been sent or is sending')
+  }
+
+  const updateData: Record<string, unknown> = { ...broadcastData }
+  if (broadcastData.audience_filter !== undefined) {
+    updateData.audience_filter = broadcastData.audience_filter as unknown as Json
+  }
+
+  const { data, error } = await supabase
+    .from('broadcasts')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to update broadcast: ${error.message}`)
+  }
+
+  return data as Broadcast
+}
+
+export async function deleteBroadcast(id: string): Promise<void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  // Check broadcast status — only allow deleting draft or scheduled
+  const { data: broadcast, error: fetchError } = await supabase
+    .from('broadcasts')
+    .select('status')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !broadcast) {
+    throw new Error('Broadcast not found')
+  }
+
+  if (broadcast.status === 'sent' || broadcast.status === 'sending') {
+    throw new Error('Cannot delete a broadcast that has been sent or is sending')
+  }
+
+  const { error } = await supabase.from('broadcasts').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Failed to delete broadcast: ${error.message}`)
+  }
+}
+
+export async function getBroadcastRecipientCount(
+  audienceFilter?: Record<string, unknown>
+): Promise<number> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  let query = supabase
+    .from('leads')
+    .select('*', { count: 'exact', head: true })
+    .eq('unsubscribed', false)
+
+  if (audienceFilter?.status && audienceFilter.status !== 'all') {
+    query = query.eq('status', audienceFilter.status as string)
+  }
+
+  if (audienceFilter?.source && audienceFilter.source !== 'all') {
+    query = query.eq('source', audienceFilter.source as string)
+  }
+
+  if (audienceFilter?.tags && Array.isArray(audienceFilter.tags) && audienceFilter.tags.length > 0) {
+    query = query.contains('tags', audienceFilter.tags as string[])
+  }
+
+  const { count, error } = await query
+
+  if (error) {
+    throw new Error(`Failed to count recipients: ${error.message}`)
+  }
+
+  return count ?? 0
 }

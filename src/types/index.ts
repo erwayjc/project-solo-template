@@ -124,6 +124,42 @@ export interface SeoMetadata {
 }
 
 /**
+ * Non-derivable onboarding state stored in `site_config.onboarding_checklist` JSONB.
+ */
+export interface OnboardingChecklist {
+  explored_admin?: boolean
+  guide_dismissed?: boolean
+  first_post_celebrated?: boolean
+  first_checklist_celebrated?: boolean
+}
+
+/**
+ * Full onboarding progress (derived + stored).
+ */
+export interface OnboardingProgress {
+  quickWins: {
+    explored_admin: boolean
+    created_first_post: boolean
+    edited_homepage: boolean
+  }
+  powerUps: {
+    payments_connected: boolean
+    email_connected: boolean
+    ai_connected: boolean
+    social_connected: boolean
+  }
+  personalization: {
+    brand_customized: boolean
+    context_configured: boolean
+  }
+  guide_dismissed: boolean
+  celebration_flags: {
+    first_post_celebrated: boolean
+    first_checklist_celebrated: boolean
+  }
+}
+
+/**
  * Social links stored in `site_config.social_links`.
  */
 export interface SocialLinks {

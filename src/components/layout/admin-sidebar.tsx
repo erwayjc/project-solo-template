@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { OnboardingProgress } from "@/types";
 
 const navGroups = [
   {
@@ -27,6 +28,8 @@ const navGroups = [
     label: "Marketing",
     items: [
       { href: "/admin/content", label: "Content", icon: "FileText" },
+      { href: "/admin/calendar", label: "Calendar", icon: "CalendarDays" },
+      { href: "/admin/testimonials", label: "Testimonials", icon: "Quote" },
       { href: "/admin/email", label: "Email", icon: "Mail" },
     ],
   },
@@ -38,8 +41,33 @@ const navGroups = [
   },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  onboardingProgress?: OnboardingProgress;
+}
+
+export function AdminSidebar({ onboardingProgress }: AdminSidebarProps) {
   const pathname = usePathname();
+
+  // Calculate progress count
+  let completedCount = 0;
+  const totalCount = 9;
+  if (onboardingProgress) {
+    const items = [
+      onboardingProgress.quickWins.explored_admin,
+      onboardingProgress.quickWins.created_first_post,
+      onboardingProgress.quickWins.edited_homepage,
+      onboardingProgress.powerUps.payments_connected,
+      onboardingProgress.powerUps.email_connected,
+      onboardingProgress.powerUps.ai_connected,
+      onboardingProgress.powerUps.social_connected,
+      onboardingProgress.personalization.brand_customized,
+      onboardingProgress.personalization.context_configured,
+    ];
+    completedCount = items.filter(Boolean).length;
+  }
+
+  const showProgress =
+    onboardingProgress && !onboardingProgress.guide_dismissed;
 
   return (
     <aside className="flex w-64 flex-col border-r bg-white">
@@ -70,6 +98,25 @@ export function AdminSidebar() {
           </div>
         ))}
       </nav>
+
+      {showProgress && (
+        <div className="border-t px-4 py-3">
+          <Link href="/admin" className="block">
+            <p className="text-xs font-medium text-gray-500">
+              Setup: {completedCount}/{totalCount} complete
+            </p>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                style={{
+                  width: `${(completedCount / totalCount) * 100}%`,
+                }}
+              />
+            </div>
+          </Link>
+        </div>
+      )}
+
       <div className="border-t p-4">
         <Link
           href="/admin/settings"

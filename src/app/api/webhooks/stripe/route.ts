@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { verifyWebhookSignature } from "@/lib/stripe/webhooks";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getResend } from "@/lib/resend/client";
+import { buildReceiptEmail, buildWelcomeEmail } from "@/lib/resend/templates";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -30,9 +32,12 @@ export async function POST(request: NextRequest) {
         // Update profile to customer role
         const { data: profile } = await admin
           .from("profiles")
-          .select("id")
+          .select("id, full_name")
           .eq("email", customerEmail)
           .single();
+
+        let productId: string | null = null;
+        let productName: string | null = null;
 
         if (profile) {
           await admin
@@ -41,16 +46,16 @@ export async function POST(request: NextRequest) {
             .eq("id", profile.id);
 
           // Look up the product by Stripe price ID from the line items
-          let productId: string | null = null;
           const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
           const priceId = lineItems.data[0]?.price?.id;
           if (priceId) {
             const { data: product } = await admin
               .from("products")
-              .select("id")
+              .select("id, name")
               .eq("stripe_price_id", priceId)
               .single();
             productId = product?.id ?? null;
+            productName = product?.name ?? null;
           }
 
           // Create purchase record if we have a matching product
@@ -71,6 +76,90 @@ export async function POST(request: NextRequest) {
           .from("leads")
           .update({ status: "converted" })
           .eq("email", customerEmail);
+
+        // ── Post-purchase: send emails & enroll in sequences ──
+
+        // Load site config for sender info
+        const { data: siteConfig } = await admin
+          .from("site_config")
+          .select("site_name, legal_contact_email")
+          .eq("id", 1)
+          .single();
+
+        const fromName = siteConfig?.site_name || "My Business";
+        const fromEmail = siteConfig?.legal_contact_email || process.env.RESEND_FROM_EMAIL;
+        const customerName = profile?.full_name || customerEmail.split("@")[0];
+
+        if (fromEmail) {
+          const resend = getResend();
+
+          // Send receipt email
+          if (productName && session.amount_total) {
+            try {
+              const receipt = buildReceiptEmail(customerName, productName, session.amount_total);
+              await resend.emails.send({
+                from: `${fromName} <${fromEmail}>`,
+                to: customerEmail,
+                subject: receipt.subject,
+                html: receipt.html,
+              });
+            } catch (err) {
+              console.error("Failed to send receipt email:", err);
+            }
+          }
+
+          // Send welcome email
+          try {
+            const welcome = buildWelcomeEmail(customerName);
+            await resend.emails.send({
+              from: `${fromName} <${fromEmail}>`,
+              to: customerEmail,
+              subject: welcome.subject,
+              html: welcome.html,
+            });
+          } catch (err) {
+            console.error("Failed to send welcome email:", err);
+          }
+        }
+
+        // Enroll in purchase-triggered email sequences
+        try {
+          const { data: purchaseSequences } = await admin
+            .from("email_sequences")
+            .select("id")
+            .eq("trigger", "purchase")
+            .eq("is_active", true);
+
+          if (purchaseSequences && purchaseSequences.length > 0) {
+            // Check for existing enrollments to avoid duplicates
+            const { data: existingEnrollments } = await admin
+              .from("sequence_enrollments")
+              .select("sequence_id")
+              .eq("email", customerEmail)
+              .in("sequence_id", purchaseSequences.map((s) => s.id));
+
+            const alreadyEnrolled = new Set(
+              existingEnrollments?.map((e) => e.sequence_id) || []
+            );
+
+            const newEnrollments = purchaseSequences
+              .filter((s) => !alreadyEnrolled.has(s.id))
+              .map((s) => ({
+                email: customerEmail,
+                sequence_id: s.id,
+                current_step: 1,
+                status: "active",
+                started_at: new Date().toISOString(),
+                next_send_at: new Date().toISOString(),
+              }));
+
+            if (newEnrollments.length > 0) {
+              await admin.from("sequence_enrollments").insert(newEnrollments);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to enroll in purchase sequences:", err);
+        }
       }
       break;
     }

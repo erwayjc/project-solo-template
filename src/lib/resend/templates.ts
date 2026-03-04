@@ -142,6 +142,35 @@ export function buildBroadcastEmail(
   return buildSequenceEmail(subject, body, name)
 }
 
+export function buildTestimonialRequestEmail(
+  customerName: string,
+  siteName: string,
+  submitUrl: string
+): EmailTemplate {
+  const safeName = escapeHtml(customerName || 'there')
+  const safeSiteName = escapeHtml(siteName)
+  const safeUrl = encodeURI(submitUrl)
+  const html = wrapInLayout(`
+    <h1 style="margin: 0 0 16px; font-size: 24px; font-weight: 700; color: #111827;">We&rsquo;d love your feedback!</h1>
+    <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #374151;">
+      Hi ${safeName}, you&rsquo;ve been making great progress! We&rsquo;d love to hear about your experience with ${safeSiteName}. It only takes a minute.
+    </p>
+    <p style="margin: 24px 0;">
+      <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+        Share Your Feedback
+      </a>
+    </p>
+    <p style="margin: 24px 0 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+      Thank you for being a valued member of our community.
+    </p>
+  `)
+
+  return {
+    subject: "We'd love your feedback!",
+    html,
+  }
+}
+
 /**
  * Wrap content in the standard email layout but without the unsubscribe link.
  * Used for transactional support replies (not marketing).

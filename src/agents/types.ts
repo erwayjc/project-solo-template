@@ -69,6 +69,45 @@ export interface ToolCall {
 }
 
 /**
+ * Memory visibility scope.
+ */
+export type MemoryScope = 'customer' | 'business' | 'agent' | 'conversation'
+
+/**
+ * A persistent memory created by an agent.
+ */
+export interface AgentMemory {
+  id: string
+  agent_id: string
+  scope: MemoryScope
+  customer_id: string | null
+  content: string
+  category: string
+  importance: number
+  source_conversation_id: string | null
+  metadata: Record<string, unknown>
+  similarity?: number // populated by match_memories RPC
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * An inter-agent context transfer record.
+ */
+export interface AgentHandoff {
+  id: string
+  source_agent_id: string
+  target_agent_id: string
+  customer_id: string | null
+  summary: string
+  memory_ids: string[]
+  status: 'pending' | 'accepted' | 'completed' | 'expired'
+  metadata: Record<string, unknown>
+  created_at: string
+  expires_at: string | null
+}
+
+/**
  * Context passed into the agent engine for a conversation turn.
  */
 export interface ConversationContext {

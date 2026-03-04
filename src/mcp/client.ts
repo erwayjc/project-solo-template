@@ -38,6 +38,21 @@ export class McpClient {
     }))
   }
 
+  /**
+   * Register a dynamically-created tool at runtime.
+   * Used by the engine to add tools that need a closure over the engine instance
+   * (e.g. delegate_to_agent).
+   */
+  addTool(tool: ToolDefinition): void {
+    // Prevent duplicate registration (e.g. if run() is called multiple times on a reused client)
+    const existing = this.internalTools.findIndex((t) => t.name === tool.name)
+    if (existing !== -1) {
+      this.internalTools[existing] = { ...tool, server: 'internal' }
+    } else {
+      this.internalTools.push({ ...tool, server: 'internal' })
+    }
+  }
+
   // -----------------------------------------------------------------------
   // External MCP Server Connections
   // -----------------------------------------------------------------------

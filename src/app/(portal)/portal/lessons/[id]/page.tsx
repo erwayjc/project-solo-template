@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function LessonPage({
@@ -14,13 +15,30 @@ export default async function LessonPage({
 
   const { data: lesson } = await supabase
     .from("lessons")
-    .select("*, modules(title)")
+    .select("*, modules(title, product_id)")
     .eq("id", id)
     .eq("is_published", true)
     .single();
 
   if (!lesson) {
     notFound();
+  }
+
+  // Gate access: if module has a product_id, user must have an active purchase
+  const moduleProductId = (lesson.modules as { title: string; product_id: string | null })?.product_id;
+  if (moduleProductId) {
+    const { data: purchase } = await supabase
+      .from("purchases")
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("product_id", moduleProductId)
+      .eq("status", "active")
+      .limit(1)
+      .single();
+
+    if (!purchase) {
+      redirect("/portal/lessons");
+    }
   }
 
   const { data: progress } = await supabase

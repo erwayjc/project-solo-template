@@ -68,6 +68,8 @@ export interface Database {
           legal_business_name: string | null
           legal_contact_email: string | null
           cs_agent_config: Json
+          onboarding_checklist: Json
+          stripe_connect_account_id: string | null
         }
         Insert: {
           id?: number
@@ -84,6 +86,8 @@ export interface Database {
           legal_business_name?: string | null
           legal_contact_email?: string | null
           cs_agent_config?: Json
+          onboarding_checklist?: Json
+          stripe_connect_account_id?: string | null
         }
         Update: {
           id?: number
@@ -100,6 +104,8 @@ export interface Database {
           legal_business_name?: string | null
           legal_contact_email?: string | null
           cs_agent_config?: Json
+          onboarding_checklist?: Json
+          stripe_connect_account_id?: string | null
         }
         Relationships: []
       }
@@ -947,6 +953,43 @@ export interface Database {
         ]
       }
 
+      testimonials: {
+        Row: {
+          id: string
+          name: string
+          quote: string
+          role: string | null
+          company: string | null
+          image_url: string | null
+          sort_order: number
+          is_published: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          quote: string
+          role?: string | null
+          company?: string | null
+          image_url?: string | null
+          sort_order?: number
+          is_published?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          quote?: string
+          role?: string | null
+          company?: string | null
+          image_url?: string | null
+          sort_order?: number
+          is_published?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+
       inbound_emails: {
         Row: {
           id: string
@@ -997,12 +1040,206 @@ export interface Database {
           },
         ]
       }
+      testimonial_requests: {
+        Row: {
+          id: string
+          user_id: string
+          trigger_type: string
+          status: string
+          sent_at: string | null
+          responded_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          trigger_type: string
+          status?: string
+          sent_at?: string | null
+          responded_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          trigger_type?: string
+          status?: string
+          sent_at?: string | null
+          responded_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'testimonial_requests_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      agent_memories: {
+        Row: {
+          id: string
+          agent_id: string
+          scope: string
+          customer_id: string | null
+          content: string
+          embedding: unknown | null
+          category: string
+          importance: number
+          source_conversation_id: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          scope: string
+          customer_id?: string | null
+          content: string
+          embedding?: unknown | null
+          category?: string
+          importance?: number
+          source_conversation_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          scope?: string
+          customer_id?: string | null
+          content?: string
+          embedding?: unknown | null
+          category?: string
+          importance?: number
+          source_conversation_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_memories_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_memories_customer_id_fkey'
+            columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_memories_source_conversation_id_fkey'
+            columns: ['source_conversation_id']
+            isOneToOne: false
+            referencedRelation: 'agent_conversations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      agent_handoffs: {
+        Row: {
+          id: string
+          source_agent_id: string
+          target_agent_id: string
+          customer_id: string | null
+          summary: string
+          memory_ids: Json
+          status: string
+          metadata: Json
+          created_at: string
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          source_agent_id: string
+          target_agent_id: string
+          customer_id?: string | null
+          summary: string
+          memory_ids?: Json
+          status?: string
+          metadata?: Json
+          created_at?: string
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          source_agent_id?: string
+          target_agent_id?: string
+          customer_id?: string | null
+          summary?: string
+          memory_ids?: Json
+          status?: string
+          metadata?: Json
+          created_at?: string
+          expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_handoffs_source_agent_id_fkey'
+            columns: ['source_agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_handoffs_target_agent_id_fkey'
+            columns: ['target_agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_handoffs_customer_id_fkey'
+            columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      merge_onboarding_checklist: {
+        Args: {
+          updates: Json
+        }
+        Returns: undefined
+      }
+      match_memories: {
+        Args: {
+          query_embedding: string
+          match_threshold?: number
+          match_count?: number
+          filter_agent_id?: string | null
+          filter_scope?: string | null
+          filter_customer_id?: string | null
+          filter_conversation_id?: string | null
+        }
+        Returns: {
+          id: string
+          agent_id: string
+          scope: string
+          customer_id: string | null
+          content: string
+          category: string
+          importance: number
+          source_conversation_id: string | null
+          metadata: Json
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

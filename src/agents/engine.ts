@@ -11,9 +11,16 @@ import { getAnthropic } from '@/lib/claude/client'
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { McpClient } from '@/mcp/client'
-import type { AgentConfig, AgentMessage, ToolCall } from './types'
+import type { AgentConfig, AgentMessage, AgentMemory, AgentHandoff, ToolCall } from './types'
 import type { ToolDefinition } from '@/mcp/types'
 import type { Json } from '@/lib/supabase/types'
+import {
+  DELEGATION_BLOCKED_TOOLS,
+  DELEGATION_MODE_PREAMBLE,
+  MAX_DELEGATION_ROUNDS,
+  createDelegationTool,
+} from './orchestration'
+import { getPromptBuilder } from './prompts/index'
 
 // Maximum rounds of tool-use before forcing a text response
 const MAX_TOOL_ROUNDS = 15
@@ -67,6 +74,7 @@ export class AgentEngine {
     conversationId: string
     toolCalls: ToolCall[]
   }> {
+    const turnStartTime = Date.now()
     const supabase = createAdminClient()
 
     // -----------------------------------------------------------------
@@ -146,6 +154,110 @@ export class AgentEngine {
       : ''
 
     // -----------------------------------------------------------------
+    // 3b. Retrieve relevant memories for this agent
+    // -----------------------------------------------------------------
+    let memoryContext = ''
+    try {
+      const embedResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/embed-memory`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ content: userMessage, action: 'embed-only' }),
+        }
+      )
+      if (embedResponse.ok) {
+        const { embedding } = await embedResponse.json()
+
+        // Query for agent-specific memories
+        const { data: memories } = await supabase.rpc('match_memories', {
+          query_embedding: JSON.stringify(embedding),
+          match_threshold: 0.7,
+          match_count: 10,
+          filter_agent_id: agent.id,
+        })
+
+        // Also fetch business-scope memories (shared across all agents)
+        const { data: sharedMemories } = await supabase.rpc('match_memories', {
+          query_embedding: JSON.stringify(embedding),
+          match_threshold: 0.7,
+          match_count: 5,
+          filter_scope: 'business',
+        })
+
+        // Fetch conversation-scope memories if continuing an existing conversation
+        let conversationMemories: { id: string; scope: string; category: string; content: string }[] = []
+        if (convId) {
+          const { data: convMems } = await supabase
+            .from('agent_memories')
+            .select('id, agent_id, scope, customer_id, content, category, importance, source_conversation_id, metadata, created_at, updated_at')
+            .eq('scope', 'conversation')
+            .eq('source_conversation_id', convId)
+            .order('importance', { ascending: false })
+            .limit(5)
+          conversationMemories = (convMems ?? []) as typeof conversationMemories
+        }
+
+        // Combine and deduplicate all memory sources
+        const seenIds = new Set<string>()
+        const allMemories = [
+          ...(memories ?? []),
+          ...(sharedMemories ?? []),
+          ...conversationMemories,
+        ].filter((m) => {
+          if (seenIds.has(m.id)) return false
+          seenIds.add(m.id)
+          return true
+        })
+
+        if (allMemories.length > 0) {
+          memoryContext = buildMemoryContext(allMemories as AgentMemory[])
+        }
+      }
+    } catch (err) {
+      // Memory retrieval is non-critical — log and continue without memories
+      console.warn('Memory retrieval failed:', err)
+    }
+
+    // -----------------------------------------------------------------
+    // 3c. Check for pending handoffs (atomic accept to prevent races)
+    // -----------------------------------------------------------------
+    let handoffContext = ''
+    try {
+      // Atomically mark pending handoffs as accepted and return them.
+      // This prevents concurrent requests from consuming the same handoffs.
+      const { data: handoffs } = await supabase
+        .from('agent_handoffs')
+        .update({ status: 'accepted' })
+        .eq('target_agent_id', agent.id)
+        .eq('status', 'pending')
+        .or('expires_at.is.null,expires_at.gt.now()')
+        .select('*')
+
+      if (handoffs && handoffs.length > 0) {
+        // Only inject the 3 most recent into context
+        const recentHandoffs = handoffs
+          .sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
+          .slice(0, 3)
+        handoffContext = buildHandoffContext(recentHandoffs as unknown as AgentHandoff[])
+      }
+    } catch (err) {
+      console.warn('Handoff retrieval failed:', err)
+    }
+
+    // -----------------------------------------------------------------
+    // 3d. Register delegation tool if agent is orchestration-eligible
+    // -----------------------------------------------------------------
+    if (agent.tools.includes('delegate_to_agent')) {
+      this.mcpClient.addTool(
+        createDelegationTool(this, masterContext, convId, turnStartTime)
+      )
+    }
+
+    // -----------------------------------------------------------------
     // 4. Gather available tools for this agent
     // -----------------------------------------------------------------
     const availableTools = this.mcpClient.getAvailableTools(
@@ -158,9 +270,17 @@ export class AgentEngine {
     // -----------------------------------------------------------------
     // 5. Build the initial Claude messages array
     // -----------------------------------------------------------------
-    const systemPrompt = agent.systemPrompt.includes('{{MASTER_CONTEXT}}')
-      ? agent.systemPrompt.replace('{{MASTER_CONTEXT}}', masterContext)
-      : `${agent.systemPrompt}\n\n---\n\n${masterContext}`
+    // Use code-maintained prompt file if available, otherwise fall back to DB prompt
+    const promptBuilder = getPromptBuilder(agent.slug)
+    const basePrompt = promptBuilder
+      ? promptBuilder(masterContext)
+      : agent.systemPrompt.includes('{{MASTER_CONTEXT}}')
+        ? agent.systemPrompt.replace('{{MASTER_CONTEXT}}', masterContext)
+        : `${agent.systemPrompt}\n\n---\n\n${masterContext}`
+
+    const systemPrompt = [basePrompt, memoryContext, handoffContext]
+      .filter(Boolean)
+      .join('\n\n')
 
     const messages: AnthropicMessage[] = historyToAnthropicMessages(history)
 
@@ -211,7 +331,12 @@ export class AgentEngine {
       const toolResults: AnthropicToolResultBlock[] = []
 
       for (const block of toolUseBlocks) {
-        const result = await this.mcpClient.executeTool(block.name, block.input)
+        const enrichedInput = {
+          ...block.input,
+          _agent_id: agent.id,
+          _conversation_id: convId,
+        }
+        const result = await this.mcpClient.executeTool(block.name, enrichedInput)
 
         const toolCall: ToolCall = {
           id: block.id,
@@ -277,6 +402,149 @@ export class AgentEngine {
       toolCalls: allToolCalls,
     }
   }
+
+  // -----------------------------------------------------------------
+  // Delegation — lightweight specialist invocation
+  // -----------------------------------------------------------------
+
+  /**
+   * Invoke a specialist agent for a delegated task.
+   * Unlike run(), this skips conversation persistence, memory retrieval,
+   * and handoff processing. The specialist receives only the briefing
+   * message and cannot re-delegate (delegate_to_agent is excluded).
+   */
+  async delegate(
+    specialistConfig: AgentConfig,
+    briefingMessage: string,
+    masterContext: string,
+    _conversationId: string,
+    timeBudgetMs: number
+  ): Promise<{
+    response: string
+    specialist: string
+    toolCalls: string[]
+    roundsUsed: number
+  }> {
+    // Time budget check
+    if (timeBudgetMs < 10000) {
+      throw new Error('Insufficient time budget for delegation')
+    }
+
+    const maxRounds =
+      timeBudgetMs < 25000 ? 2 : MAX_DELEGATION_ROUNDS
+    const deadline = Date.now() + timeBudgetMs
+
+    // Build specialist system prompt with delegation preamble
+    // Use code-maintained prompt file if available, otherwise fall back to DB prompt
+    const specialistPromptBuilder = getPromptBuilder(specialistConfig.slug)
+    const basePrompt = specialistPromptBuilder
+      ? specialistPromptBuilder(masterContext)
+      : specialistConfig.systemPrompt.includes('{{MASTER_CONTEXT}}')
+        ? specialistConfig.systemPrompt.replace(
+            '{{MASTER_CONTEXT}}',
+            masterContext
+          )
+        : `${specialistConfig.systemPrompt}\n\n---\n\n${masterContext}`
+
+    const systemPrompt = `${DELEGATION_MODE_PREAMBLE}\n\n${basePrompt}`
+
+    // Gather specialist tools, excluding delegation tools
+    const availableTools = this.mcpClient
+      .getAvailableTools(
+        specialistConfig.mcpServers.length > 0
+          ? specialistConfig.mcpServers
+          : undefined,
+        specialistConfig.tools.length > 0
+          ? specialistConfig.tools
+          : undefined
+      )
+      .filter((t) => !DELEGATION_BLOCKED_TOOLS.includes(t.name))
+
+    const claudeTools = availableTools.map(toolToClaudeSchema)
+
+    // Single user message — no conversation history
+    const messages: AnthropicMessage[] = [
+      { role: 'user', content: briefingMessage },
+    ]
+
+    const anthropic = getAnthropic()
+    const toolCallNames: string[] = []
+    let finalResponse = ''
+    let rounds = 0
+
+    while (rounds < maxRounds) {
+      // Timeout enforcement
+      if (Date.now() >= deadline) {
+        break
+      }
+
+      rounds++
+
+      const apiResponse = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        tools: claudeTools as Anthropic.Messages.Tool[],
+        messages: messages as Anthropic.Messages.MessageParam[],
+      })
+
+      const contentBlocks =
+        apiResponse.content as AnthropicContentBlock[]
+
+      const toolUseBlocks = contentBlocks.filter(
+        (b): b is AnthropicToolUseBlock => b.type === 'tool_use'
+      )
+
+      const textBlocks = contentBlocks.filter(
+        (b): b is AnthropicTextBlock => b.type === 'text'
+      )
+
+      // No tool use — we have our final response
+      if (toolUseBlocks.length === 0) {
+        finalResponse = textBlocks.map((b) => b.text).join('\n')
+        break
+      }
+
+      // Push assistant response into messages
+      messages.push({ role: 'assistant', content: contentBlocks })
+
+      // Execute each tool call
+      const toolResults: AnthropicToolResultBlock[] = []
+
+      for (const block of toolUseBlocks) {
+        const enrichedInput = {
+          ...block.input,
+          _agent_id: specialistConfig.id,
+        }
+        const result = await this.mcpClient.executeTool(
+          block.name,
+          enrichedInput
+        )
+
+        toolCallNames.push(block.name)
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(result),
+        })
+      }
+
+      messages.push({ role: 'user', content: toolResults })
+    }
+
+    if (!finalResponse) {
+      finalResponse =
+        'The specialist completed the requested operations but did not provide a text summary.'
+    }
+
+    return {
+      response: finalResponse,
+      specialist: specialistConfig.name,
+      toolCalls: toolCallNames,
+      roundsUsed: rounds,
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,12 +553,30 @@ export class AgentEngine {
 
 /**
  * Convert a ToolDefinition into the Claude API tool schema format.
+ * Strips engine-injected parameters (_agent_id, _conversation_id) from
+ * the schema so Claude cannot see or hallucinate values for them.
  */
 function toolToClaudeSchema(tool: ToolDefinition) {
+  const schema = { ...tool.inputSchema }
+
+  // Remove _-prefixed properties (engine-injected at execution time)
+  if (schema.properties) {
+    const filtered = { ...schema.properties as Record<string, unknown> }
+    for (const key of Object.keys(filtered)) {
+      if (key.startsWith('_')) delete filtered[key]
+    }
+    schema.properties = filtered
+  }
+
+  // Remove _-prefixed entries from required array
+  if (Array.isArray(schema.required)) {
+    schema.required = (schema.required as string[]).filter((r: string) => !r.startsWith('_'))
+  }
+
   return {
     name: tool.name,
     description: tool.description,
-    input_schema: tool.inputSchema,
+    input_schema: schema,
   }
 }
 
@@ -317,6 +603,41 @@ function historyToAnthropicMessages(
   }
 
   return messages
+}
+
+/**
+ * Format retrieved memories into a context section for injection into the system prompt.
+ */
+function buildMemoryContext(memories: AgentMemory[]): string {
+  const scopeLabels: Record<string, string> = {
+    customer: '(Customer)',
+    business: '(Business)',
+    agent: '(Agent)',
+    conversation: '(Conversation)',
+  }
+  const lines = ['## Relevant Memories', '']
+  for (const mem of memories) {
+    const scope = scopeLabels[mem.scope] ?? '(Unknown)'
+    lines.push(`- ${scope} [${mem.category}] ${mem.content}`)
+  }
+  lines.push('')
+  lines.push(
+    'Use these memories to provide personalized, context-aware responses. If you learn something new worth remembering, use the store_memory tool.'
+  )
+  return lines.join('\n')
+}
+
+/**
+ * Format pending handoffs into a context section for injection into the system prompt.
+ */
+function buildHandoffContext(handoffs: AgentHandoff[]): string {
+  const lines = ['## Agent Handoffs', '']
+  for (const h of handoffs) {
+    lines.push('**Handoff from another agent:**')
+    lines.push(h.summary)
+    lines.push('')
+  }
+  return lines.join('\n')
 }
 
 /**

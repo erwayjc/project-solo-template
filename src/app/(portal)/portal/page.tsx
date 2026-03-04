@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { TestimonialRequestBanner } from "@/components/portal/testimonial-request-banner";
 
 export const metadata = { title: "Dashboard" };
 
@@ -23,6 +24,7 @@ export default async function PortalDashboard() {
 
   return (
     <div className="mx-auto max-w-4xl">
+      <TestimonialRequestBanner />
       <h1 className="text-2xl font-bold text-gray-900">
         Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}
       </h1>
