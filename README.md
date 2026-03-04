@@ -2,7 +2,7 @@
 
 Your AI-powered business platform — a complete business-in-a-box for solo creators and entrepreneurs.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL&envDescription=In+Supabase%2C+click+Connect+%3E+API+Keys.+SUPABASE_URL+%3D+Project+URL.+ANON_KEY+%3D+Anon+Key+(Legacy).+SERVICE_ROLE_KEY+%3D+click+API+settings+%3E+service_role.+DATABASE_URL+%3D+Connection+String+tab+%3E+Transaction+Pooler+URI.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL&envDescription=In+Supabase%2C+click+Connect+%3E+API+Keys.+SUPABASE_URL+%3D+Project+URL.+For+ANON_KEY+and+SERVICE_ROLE_KEY%2C+switch+to+the+Legacy+tab.+DATABASE_URL+%3D+Connection+String+tab+%3E+Transaction+Pooler+URI.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
 
 ---
 
@@ -46,8 +46,8 @@ Copy `.env.example` to `.env.local` and fill in each value:
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase: **Connect** button > **API Keys** tab > **Project URL** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase: **Connect** > **API Keys** tab > **Anon Key (Legacy)** — use the JWT key, _not_ the Publishable Key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase: **Connect** > **API Keys** tab > click **API settings** link > `service_role` key |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase: **Connect** > **API Keys** > **Legacy anon, service_role API keys** tab > `anon` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase: **Connect** > **API Keys** > **Legacy anon, service_role API keys** tab > `service_role` key |
 | `DATABASE_URL` | Supabase: **Connect** > **Connection String** tab > Type: URI, Method: **Transaction Pooler** |
 
 ### Add after deploy (in Vercel Settings > Environment Variables)
