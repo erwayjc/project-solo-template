@@ -2,7 +2,7 @@
 
 Your AI-powered business platform — a complete business-in-a-box for solo creators and entrepreneurs.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,STRIPE_SECRET_KEY,RESEND_API_KEY,ANTHROPIC_API_KEY,NEXT_PUBLIC_SITE_URL)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template&project-name=my-solo-business&env=NEXT_PUBLIC_SUPABASE_URL%2CNEXT_PUBLIC_SUPABASE_ANON_KEY%2CSUPABASE_SERVICE_ROLE_KEY%2CDATABASE_URL%2CNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY%2CSTRIPE_SECRET_KEY%2CRESEND_API_KEY%2CANTHROPIC_API_KEY%2CNEXT_PUBLIC_SITE_URL&envDescription=Set+up+your+Supabase+project+first%2C+then+grab+API+keys+from+each+service+dashboard.+See+the+linked+guide+for+step-by-step+instructions.&envLink=https%3A%2F%2Fgithub.com%2Ferwayjc%2Fproject-solo-template%23environment-variables)
 
 ---
 
@@ -46,6 +46,7 @@ Copy `.env.example` to `.env.local` and fill in each value:
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL (Settings > API) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key (Settings > API) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (Settings > API) — keep secret |
+| `DATABASE_URL` | Supabase connection string (Settings > Database > Connection String > Transaction Pooler) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (Developers > API keys) |
 | `STRIPE_SECRET_KEY` | Stripe secret key — keep secret |
 | `RESEND_API_KEY` | Resend API key (Settings > API Keys) |
