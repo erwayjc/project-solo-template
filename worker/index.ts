@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Worker Entry Point — initializes and orchestrates all subsystems
+// Worker Entry Point — initializes and orchestrates all worker subsystems
 // ---------------------------------------------------------------------------
 
 import { createAdminClient } from '../src/lib/supabase/admin'
