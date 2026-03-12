@@ -5,10 +5,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "cd .. && npm install",
+    "build": "cd .. && npm install --prefer-offline",
     "start": "cd .. && npx tsx worker/index.ts"
-  },
-  "dependencies": {
-    "tsx": "^4.21.0"
   }
 }
