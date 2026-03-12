@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getAnthropic } from '@/lib/claude/client'
 import type { Agent, AgentConversation } from '@/types/database'
 
 // ── Agent CRUD ──
@@ -104,6 +105,7 @@ export async function createAgent(agentData: {
   mcp_servers?: string[]
   data_access?: string[]
   icon?: string
+  model?: string
   is_active?: boolean
 }): Promise<Agent> {
   const supabase = await createClient()
@@ -219,6 +221,29 @@ export async function deleteAgent(id: string): Promise<void> {
   }
 }
 
+// ── Models ──
+
+export async function getAvailableModels(): Promise<
+  { id: string; display_name: string }[]
+> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const anthropic = getAnthropic()
+  const response = await anthropic.models.list({ limit: 100 })
+
+  return response.data
+    .map((m) => ({ id: m.id, display_name: m.display_name }))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name))
+}
+
 // ── Conversations ──
 
 export async function getConversations(
@@ -289,4 +314,279 @@ export async function getConversation(id: string): Promise<AgentConversation> {
   }
 
   return data as AgentConversation
+}
+
+// ── User-scoped Conversations (any authenticated user) ──
+
+/**
+ * Fetch conversations owned by the current user for a given agent.
+ * Uses admin client with manual ownership filtering so it works
+ * regardless of RLS (portal users included).
+ */
+export async function getUserConversations(
+  agentId: string
+): Promise<Pick<AgentConversation, 'id' | 'agent_id' | 'title' | 'created_at' | 'updated_at'>[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
+    .from('agent_conversations')
+    .select('id, agent_id, title, created_at, updated_at')
+    .eq('agent_id', agentId)
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false })
+    .limit(50)
+
+  if (error) {
+    throw new Error(`Failed to fetch conversations: ${error.message}`)
+  }
+
+  return data as Pick<AgentConversation, 'id' | 'agent_id' | 'title' | 'created_at' | 'updated_at'>[]
+}
+
+/**
+ * Load a single conversation with messages, verifying ownership.
+ */
+export async function getUserConversation(
+  id: string
+): Promise<AgentConversation> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
+    .from('agent_conversations')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to fetch conversation: ${error.message}`)
+  }
+
+  // Verify ownership
+  if (data.user_id && data.user_id !== user.id) {
+    throw new Error('Access denied')
+  }
+
+  return data as AgentConversation
+}
+
+// ── Installed Skills ──
+
+export interface InstalledSkill {
+  slug: string
+  name: string
+  description: string
+  agents: string[]
+  tags: string[]
+  invocation: 'user' | 'model' | 'both'
+  referenceCount: number
+}
+
+/**
+ * Get all installed skills from the filesystem. Admin-only.
+ */
+export async function getInstalledSkills(): Promise<InstalledSkill[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Admin access required')
+  }
+
+  const { loadSkills } = await import('@/agents/skills/loader')
+  const skills = loadSkills()
+
+  return skills.map((s) => ({
+    slug: s.slug,
+    name: s.frontmatter.name,
+    description: s.frontmatter.description,
+    agents: s.frontmatter.agents,
+    tags: s.frontmatter.tags,
+    invocation: s.frontmatter.invocation,
+    referenceCount: s.referenceFiles.length,
+  }))
+}
+
+export interface SkillDetail {
+  slug: string
+  name: string
+  description: string
+  agents: string[]
+  tags: string[]
+  invocation: 'user' | 'model' | 'both'
+  body: string
+  referenceFiles: string[]
+}
+
+/**
+ * Get a single skill by slug with full body content. Admin-only.
+ */
+export async function getSkill(slug: string): Promise<SkillDetail> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Authentication required')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') throw new Error('Admin access required')
+
+  const { loadSkills, clearSkillsCache } = await import(
+    '@/agents/skills/loader'
+  )
+  clearSkillsCache()
+  const skills = loadSkills()
+  const skill = skills.find((s) => s.slug === slug)
+
+  if (!skill) throw new Error(`Skill "${slug}" not found`)
+
+  return {
+    slug: skill.slug,
+    name: skill.frontmatter.name,
+    description: skill.frontmatter.description,
+    agents: skill.frontmatter.agents,
+    tags: skill.frontmatter.tags,
+    invocation: skill.frontmatter.invocation,
+    body: skill.body,
+    referenceFiles: skill.referenceFiles,
+  }
+}
+
+/**
+ * Save a skill to disk. Creates new or updates existing. Admin-only.
+ */
+export async function saveSkill(data: {
+  slug: string
+  name: string
+  description: string
+  agents: string[]
+  tags: string[]
+  invocation: 'user' | 'model' | 'both'
+  body: string
+}): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Authentication required')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') throw new Error('Admin access required')
+
+  // Validate slug format
+  if (!/^[a-z0-9-]+$/.test(data.slug)) {
+    throw new Error('Slug must contain only lowercase letters, numbers, and hyphens')
+  }
+
+  const fs = await import('fs')
+  const path = await import('path')
+
+  const skillsDir = path.resolve(process.cwd(), 'skills')
+  const skillDir = path.join(skillsDir, data.slug)
+
+  // Ensure directories exist
+  if (!fs.existsSync(skillsDir)) {
+    fs.mkdirSync(skillsDir, { recursive: true })
+  }
+  if (!fs.existsSync(skillDir)) {
+    fs.mkdirSync(skillDir, { recursive: true })
+  }
+
+  // Build SKILL.md content
+  const frontmatter = [
+    '---',
+    `name: ${data.name}`,
+    `description: ${data.description}`,
+    `agents: [${data.agents.join(', ')}]`,
+    `tags: [${data.tags.join(', ')}]`,
+    `invocation: ${data.invocation}`,
+    '---',
+  ].join('\n')
+
+  const content = `${frontmatter}\n\n${data.body}\n`
+
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content, 'utf-8')
+
+  // Clear cache so next load picks up changes
+  const { clearSkillsCache } = await import('@/agents/skills/loader')
+  clearSkillsCache()
+}
+
+/**
+ * Delete a skill from disk. Admin-only.
+ */
+export async function deleteSkill(slug: string): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Authentication required')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') throw new Error('Admin access required')
+
+  const fs = await import('fs')
+  const path = await import('path')
+
+  const skillDir = path.resolve(process.cwd(), 'skills', slug)
+  if (!fs.existsSync(skillDir)) {
+    throw new Error(`Skill "${slug}" not found`)
+  }
+
+  fs.rmSync(skillDir, { recursive: true, force: true })
+
+  const { clearSkillsCache } = await import('@/agents/skills/loader')
+  clearSkillsCache()
 }

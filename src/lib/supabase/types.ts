@@ -392,6 +392,13 @@ export interface Database {
           seo: Json
           is_published: boolean
           created_at: string
+          render_mode: string
+          html_content: string | null
+          html_content_previous: string | null
+          sanitized_at: string | null
+          view_count: number
+          container_type: string
+          funnel_id: string | null
         }
         Insert: {
           id?: string
@@ -400,6 +407,13 @@ export interface Database {
           seo?: Json
           is_published?: boolean
           created_at?: string
+          render_mode?: string
+          html_content?: string | null
+          html_content_previous?: string | null
+          sanitized_at?: string | null
+          view_count?: number
+          container_type?: string
+          funnel_id?: string | null
         }
         Update: {
           id?: string
@@ -408,6 +422,13 @@ export interface Database {
           seo?: Json
           is_published?: boolean
           created_at?: string
+          render_mode?: string
+          html_content?: string | null
+          html_content_previous?: string | null
+          sanitized_at?: string | null
+          view_count?: number
+          container_type?: string
+          funnel_id?: string | null
         }
         Relationships: []
       }
@@ -760,6 +781,7 @@ export interface Database {
           mcp_servers: string[]
           data_access: string[]
           icon: string
+          model: string
           is_system: boolean
           is_active: boolean
           created_at: string
@@ -774,6 +796,7 @@ export interface Database {
           mcp_servers?: string[]
           data_access?: string[]
           icon?: string
+          model?: string
           is_system?: boolean
           is_active?: boolean
           created_at?: string
@@ -788,6 +811,7 @@ export interface Database {
           mcp_servers?: string[]
           data_access?: string[]
           icon?: string
+          model?: string
           is_system?: boolean
           is_active?: boolean
           created_at?: string
@@ -1202,6 +1226,434 @@ export interface Database {
             columns: ['customer_id']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      funnels: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          status: string
+          goal_type: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          status?: string
+          goal_type: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          status?: string
+          goal_type?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      funnel_steps: {
+        Row: {
+          id: string
+          funnel_id: string
+          page_id: string
+          step_order: number
+          step_type: string
+          expected_action: string
+          product_id: string | null
+          email_sequence_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          funnel_id: string
+          page_id: string
+          step_order: number
+          step_type: string
+          expected_action: string
+          product_id?: string | null
+          email_sequence_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          funnel_id?: string
+          page_id?: string
+          step_order?: number
+          step_type?: string
+          expected_action?: string
+          product_id?: string | null
+          email_sequence_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'funnel_steps_funnel_id_fkey'
+            columns: ['funnel_id']
+            isOneToOne: false
+            referencedRelation: 'funnels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'funnel_steps_page_id_fkey'
+            columns: ['page_id']
+            isOneToOne: false
+            referencedRelation: 'pages'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
+      funnel_events: {
+        Row: {
+          id: string
+          funnel_id: string
+          funnel_step_id: string
+          event_type: string
+          visitor_hash: string | null
+          lead_id: string | null
+          user_id: string | null
+          stripe_session_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          funnel_id: string
+          funnel_step_id: string
+          event_type: string
+          visitor_hash?: string | null
+          lead_id?: string | null
+          user_id?: string | null
+          stripe_session_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          funnel_id?: string
+          funnel_step_id?: string
+          event_type?: string
+          visitor_hash?: string | null
+          lead_id?: string | null
+          user_id?: string | null
+          stripe_session_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'funnel_events_funnel_id_fkey'
+            columns: ['funnel_id']
+            isOneToOne: false
+            referencedRelation: 'funnels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'funnel_events_funnel_step_id_fkey'
+            columns: ['funnel_step_id']
+            isOneToOne: false
+            referencedRelation: 'funnel_steps'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
+      agent_schedules: {
+        Row: {
+          id: string
+          agent_id: string
+          name: string
+          prompt: string
+          cron_expression: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          max_retries: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          name: string
+          prompt: string
+          cron_expression: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          max_retries?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          name?: string
+          prompt?: string
+          cron_expression?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          max_retries?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_schedules_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
+      agent_triggers: {
+        Row: {
+          id: string
+          agent_id: string
+          name: string
+          table_name: string
+          event_type: string
+          filter_conditions: Json | null
+          prompt_template: string
+          is_active: boolean
+          cooldown_seconds: number
+          last_triggered_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          name: string
+          table_name: string
+          event_type?: string
+          filter_conditions?: Json | null
+          prompt_template: string
+          is_active?: boolean
+          cooldown_seconds?: number
+          last_triggered_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          name?: string
+          table_name?: string
+          event_type?: string
+          filter_conditions?: Json | null
+          prompt_template?: string
+          is_active?: boolean
+          cooldown_seconds?: number
+          last_triggered_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_triggers_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
+      agent_runs: {
+        Row: {
+          id: string
+          agent_id: string
+          trigger_type: string
+          trigger_id: string | null
+          status: string
+          prompt: string | null
+          response: string | null
+          tool_calls: Json | null
+          tokens_used: number | null
+          duration_ms: number | null
+          error_message: string | null
+          started_at: string | null
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          trigger_type: string
+          trigger_id?: string | null
+          status?: string
+          prompt?: string | null
+          response?: string | null
+          tool_calls?: Json | null
+          tokens_used?: number | null
+          duration_ms?: number | null
+          error_message?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          trigger_type?: string
+          trigger_id?: string | null
+          status?: string
+          prompt?: string | null
+          response?: string | null
+          tool_calls?: Json | null
+          tokens_used?: number | null
+          duration_ms?: number | null
+          error_message?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_runs_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+
+      agent_status: {
+        Row: {
+          agent_id: string
+          status: string
+          current_task: string | null
+          last_active_at: string | null
+          runs_today: number
+          errors_today: number
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          status?: string
+          current_task?: string | null
+          last_active_at?: string | null
+          runs_today?: number
+          errors_today?: number
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          status?: string
+          current_task?: string | null
+          last_active_at?: string | null
+          runs_today?: number
+          errors_today?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      goals: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          target_metrics: Json | null
+          current_metrics: Json | null
+          strategy: string | null
+          status: string
+          target_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          target_metrics?: Json | null
+          current_metrics?: Json | null
+          strategy?: string | null
+          status?: string
+          target_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          target_metrics?: Json | null
+          current_metrics?: Json | null
+          strategy?: string | null
+          status?: string
+          target_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
+      goal_tasks: {
+        Row: {
+          id: string
+          goal_id: string
+          agent_id: string | null
+          title: string
+          description: string | null
+          status: string
+          result: string | null
+          priority: number
+          order_index: number
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          goal_id: string
+          agent_id?: string | null
+          title: string
+          description?: string | null
+          status?: string
+          result?: string | null
+          priority?: number
+          order_index?: number
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          goal_id?: string
+          agent_id?: string | null
+          title?: string
+          description?: string | null
+          status?: string
+          result?: string | null
+          priority?: number
+          order_index?: number
+          created_at?: string
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'goal_tasks_goal_id_fkey'
+            columns: ['goal_id']
+            isOneToOne: false
+            referencedRelation: 'goals'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'goal_tasks_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
             referencedColumns: ['id']
           },
         ]

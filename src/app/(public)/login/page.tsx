@@ -39,7 +39,18 @@ function LoginForm() {
         });
         if (error) throw error;
       }
-      router.push(next);
+      // If no explicit redirect was requested, route based on role
+      if (!searchParams.get("next")) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", (await supabase.auth.getUser()).data.user!.id)
+          .single();
+
+        router.push(profile?.role === "admin" ? "/admin" : "/portal");
+      } else {
+        router.push(next);
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");

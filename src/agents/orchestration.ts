@@ -5,6 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ToolDefinition, ToolResult } from '@/mcp/types'
 import type { AgentEngine } from './engine'
+import type { AgentProgressEvent, DelegationRecord, DelegationState } from './types'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,9 +46,17 @@ export function createDelegationTool(
   engine: AgentEngine,
   masterContext: string,
   conversationId: string,
-  turnStartTime: number
+  turnStartTime: number,
+  onProgress?: (event: AgentProgressEvent) => void
 ): ToolDefinition {
-  let delegationCount = 0
+  const state: DelegationState = {
+    records: [],
+    maxDelegations: MAX_DELEGATIONS_PER_TURN,
+    timeBudgetRemainingMs: DELEGATION_TIMEOUT_MS,
+    totalTokensUsed: 0,
+  }
+
+  const emit = onProgress ?? (() => {})
 
   return {
     name: 'delegate_to_agent',
@@ -82,9 +91,8 @@ export function createDelegationTool(
       const message = params.message as string
       const callingAgentId = params._agent_id as string
 
-      // Enforce per-turn delegation cap (check before incrementing so
-      // failed validations and retries don't consume the cap)
-      if (delegationCount >= MAX_DELEGATIONS_PER_TURN) {
+      // Enforce per-turn delegation cap
+      if (state.records.filter((r) => r.status !== 'failed').length >= MAX_DELEGATIONS_PER_TURN) {
         return {
           success: false,
           error: `Maximum delegations per turn (${MAX_DELEGATIONS_PER_TURN}) exceeded`,
@@ -126,12 +134,30 @@ export function createDelegationTool(
             string,
             'read' | 'write' | 'none'
           >) ?? {},
+        model: (agentRow.model as string) ?? 'claude-sonnet-4-20250514',
         isSystem: agentRow.is_system as boolean,
       }
 
       // Compute remaining time budget
       const elapsed = Date.now() - turnStartTime
       const timeBudgetMs = DELEGATION_TIMEOUT_MS - elapsed
+      state.timeBudgetRemainingMs = timeBudgetMs
+
+      // Create delegation record
+      const record: DelegationRecord = {
+        specialist: agentSlug,
+        specialistName: specialistConfig.name,
+        status: 'in-progress',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        roundsUsed: 0,
+        toolsUsed: [],
+        tokensUsed: 0,
+        responseSummary: '',
+      }
+      state.records.push(record)
+
+      emit({ type: 'delegation_start', specialist: agentSlug, specialistName: specialistConfig.name })
 
       try {
         const result = await engine.delegate(
@@ -141,19 +167,92 @@ export function createDelegationTool(
           conversationId,
           timeBudgetMs
         )
-        delegationCount++
+
+        // Update record on success
+        record.status = 'completed'
+        record.completedAt = new Date().toISOString()
+        record.roundsUsed = result.roundsUsed
+        record.toolsUsed = result.toolCalls
+        record.tokensUsed = result.tokensUsed
+        record.responseSummary = result.response.slice(0, 500)
+        state.totalTokensUsed += result.tokensUsed
+
+        emit({ type: 'delegation_end', specialist: agentSlug, status: 'completed', roundsUsed: result.roundsUsed })
+
         return {
           success: true,
           data: result,
         }
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Delegation failed unexpectedly'
+
+        // Update record on failure
+        record.status = 'failed'
+        record.completedAt = new Date().toISOString()
+        record.error = errorMessage
+
+        emit({ type: 'delegation_end', specialist: agentSlug, status: 'failed', roundsUsed: 0 })
+
         return {
           success: false,
-          error:
-            err instanceof Error
-              ? err.message
-              : 'Delegation failed unexpectedly',
+          error: errorMessage,
         }
+      }
+    },
+
+    // Expose delegation state for the status tool
+    _delegationState: state,
+  } as ToolDefinition & { _delegationState: DelegationState }
+}
+
+/**
+ * Create the delegation_status tool that reports current delegation state.
+ */
+export function createDelegationStatusTool(
+  getDelegationState: () => DelegationState | undefined,
+  turnStartTime: number
+): ToolDefinition {
+  return {
+    name: 'delegation_status',
+    description:
+      'Check the current status of delegations in this turn. Returns how many delegations have been used, their results, time budget remaining, and token usage.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    async execute(): Promise<ToolResult> {
+      const state = getDelegationState()
+      if (!state) {
+        return {
+          success: true,
+          data: {
+            delegations_used: 0,
+            delegations_remaining: MAX_DELEGATIONS_PER_TURN,
+            records: [],
+            time_budget_remaining_ms: DELEGATION_TIMEOUT_MS - (Date.now() - turnStartTime),
+            total_tokens_used: 0,
+          },
+        }
+      }
+
+      const completedCount = state.records.filter((r) => r.status === 'completed').length
+      return {
+        success: true,
+        data: {
+          delegations_used: completedCount,
+          delegations_remaining: MAX_DELEGATIONS_PER_TURN - completedCount,
+          records: state.records.map((r) => ({
+            specialist: r.specialist,
+            specialistName: r.specialistName,
+            status: r.status,
+            roundsUsed: r.roundsUsed,
+            toolsUsed: r.toolsUsed,
+            tokensUsed: r.tokensUsed,
+            error: r.error,
+          })),
+          time_budget_remaining_ms: DELEGATION_TIMEOUT_MS - (Date.now() - turnStartTime),
+          total_tokens_used: state.totalTokensUsed,
+        },
       }
     },
   }

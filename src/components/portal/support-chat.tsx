@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAgentChat } from "@/hooks/use-agent-chat";
+import { MarkdownContent } from "@/components/agent/markdown-content";
 import { cn } from "@/lib/utils/cn";
 
 interface SupportChatProps {
@@ -13,8 +14,9 @@ export function SupportChat({
   agentSlug = "support-agent",
   className,
 }: SupportChatProps) {
-  const { messages, sendMessage, isLoading, error } = useAgentChat({
+  const { messages, sendMessage, isLoading, isLoadingHistory, error } = useAgentChat({
     agentId: agentSlug,
+    autoResume: true,
   });
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,12 @@ export function SupportChat({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {messages.length === 0 && (
+        {isLoadingHistory && (
+          <p className="text-center text-sm text-gray-400 animate-pulse">
+            Loading conversation...
+          </p>
+        )}
+        {!isLoadingHistory && messages.length === 0 && (
           <p className="text-center text-sm text-gray-400">
             Send a message to start a conversation.
           </p>
@@ -62,7 +69,13 @@ export function SupportChat({
                 : "mr-auto bg-gray-100 text-gray-900",
             )}
           >
-            {msg.content}
+            {msg.role === "assistant" ? (
+              <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-a:text-blue-600">
+                <MarkdownContent content={msg.content} />
+              </div>
+            ) : (
+              msg.content
+            )}
           </div>
         ))}
         {isLoading && (
@@ -83,7 +96,7 @@ export function SupportChat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          disabled={isLoading}
+          disabled={isLoading || isLoadingHistory}
           className="flex-1 bg-transparent px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 outline-none disabled:opacity-50"
         />
         <button

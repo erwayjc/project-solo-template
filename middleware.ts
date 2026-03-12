@@ -9,6 +9,7 @@ const PUBLIC_PREFIXES = [
   '/api/opt-in',
   '/api/health',
   '/api/auth/stripe',
+  '/api/leads',
   '/login',
   '/signup',
   '/forgot-password',
@@ -55,6 +56,11 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // ── 2b. Setup wizard — accessible without auth (creates the first admin account) ──
+  if (pathname === '/admin/setup' || pathname.startsWith('/admin/setup/')) {
+    return response
+  }
+
   // ── 3. All remaining routes require authentication ──
   if (!user) {
     const loginUrl = new URL('/login', request.url)
@@ -83,11 +89,6 @@ export async function middleware(request: NextRequest) {
 
   // ── 6. Admin routes — require 'admin' role ──
   if (pathname.startsWith('/admin')) {
-    // /admin/setup is accessible without auth (the wizard creates the first admin account)
-    if (pathname === '/admin/setup' || pathname.startsWith('/admin/setup/')) {
-      return response
-    }
-
     if (role !== 'admin') {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('next', pathname)

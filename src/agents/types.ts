@@ -30,6 +30,9 @@ export interface AgentConfig {
    */
   dataAccess: Record<string, 'read' | 'write' | 'none'>
 
+  /** Anthropic model ID to use for this agent (e.g. 'claude-sonnet-4-20250514') */
+  model: string
+
   /** Whether this is a built-in system agent (cannot be deleted) */
   isSystem: boolean
 }
@@ -119,4 +122,57 @@ export interface ConversationContext {
 
   /** Message history (loaded from DB or built up during the turn) */
   messages: AgentMessage[]
+}
+
+/**
+ * Progress events emitted by the engine during a conversation turn.
+ * Used to provide real-time feedback in the chat UI.
+ */
+export type AgentProgressEvent =
+  | { type: 'status'; message: string }
+  | { type: 'tool_start'; toolName: string; toolCallId: string }
+  | { type: 'tool_end'; toolName: string; toolCallId: string }
+  | { type: 'delegation_start'; specialist: string; specialistName: string }
+  | { type: 'delegation_end'; specialist: string; status: 'completed' | 'failed'; roundsUsed: number }
+  | { type: 'text'; content: string }
+  | { type: 'done'; conversationId: string; toolCalls: ToolCall[]; tokensUsed: number; delegations?: DelegationRecord[] }
+
+/**
+ * Record of a single delegation to a specialist agent.
+ */
+export interface DelegationRecord {
+  /** Specialist agent slug */
+  specialist: string
+  /** Specialist display name */
+  specialistName: string
+  /** Current status */
+  status: 'in-progress' | 'completed' | 'failed'
+  /** When the delegation started */
+  startedAt: string
+  /** When it completed (null if in-progress) */
+  completedAt: string | null
+  /** Number of tool-use rounds the specialist used */
+  roundsUsed: number
+  /** Tool names the specialist invoked */
+  toolsUsed: string[]
+  /** Token count used by this delegation */
+  tokensUsed: number
+  /** Truncated summary of the specialist's response */
+  responseSummary: string
+  /** Error message if failed */
+  error?: string
+}
+
+/**
+ * Aggregated state of all delegations within a single orchestrator turn.
+ */
+export interface DelegationState {
+  /** Delegation records for this turn */
+  records: DelegationRecord[]
+  /** Max delegations allowed per turn */
+  maxDelegations: number
+  /** Wall-clock time budget remaining (ms) */
+  timeBudgetRemainingMs: number
+  /** Total tokens used across all delegations */
+  totalTokensUsed: number
 }

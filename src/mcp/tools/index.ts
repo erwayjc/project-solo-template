@@ -19,6 +19,11 @@ import { tools as pwaTools } from './pwa'
 import { tools as mcpManagementTools } from './mcp-management'
 import { tools as testimonialTools } from './testimonials'
 import { tools as memoryTools } from './memory'
+import { tools as customPagesTools } from './custom-pages'
+import { tools as funnelTools } from './funnels'
+import { tools as agentRunsTools } from './agent-runs'
+import { tools as goalsTools } from './goals'
+import { tools as schedulingTools } from './scheduling'
 
 /**
  * Flat array of every internal tool, ordered by domain.
@@ -39,6 +44,11 @@ const allTools: ToolDefinition[] = [
   ...mcpManagementTools,
   ...testimonialTools,
   ...memoryTools,
+  ...customPagesTools,
+  ...funnelTools,
+  ...agentRunsTools,
+  ...goalsTools,
+  ...schedulingTools,
 ]
 
 /**

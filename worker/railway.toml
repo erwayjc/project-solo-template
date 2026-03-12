@@ -1,0 +1,6 @@
+[build]
+buildCommand = "cd .. && npm install"
+
+[deploy]
+startCommand = "cd .. && npm run worker:start"
+restartPolicyType = "ON_FAILURE"

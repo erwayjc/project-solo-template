@@ -20,13 +20,13 @@ export async function POST() {
     )
   }
 
-  const databaseUrl = process.env.DATABASE_URL
+  const databaseUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL
   if (!databaseUrl) {
     return NextResponse.json(
       {
         migrated: false,
         error:
-          'DATABASE_URL is not configured. Add it to your Vercel environment variables. Find it in Supabase Dashboard > Settings > Database > Connection String (Transaction Pooler).',
+          'DATABASE_URL (or POSTGRES_URL) is not configured. If you deployed via the Supabase Integration, this should be set automatically. Otherwise, add DATABASE_URL to your Vercel environment variables.',
       },
       { status: 400 }
     )

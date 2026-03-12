@@ -68,6 +68,27 @@ export async function POST(request: NextRequest) {
               currency: session.currency || "usd",
               status: "active",
             });
+
+            // Record funnel conversion events for any steps linked to this product
+            const { data: funnelSteps } = await admin
+              .from("funnel_steps")
+              .select("id, funnel_id")
+              .eq("product_id", productId);
+
+            if (funnelSteps && funnelSteps.length > 0) {
+              for (const step of funnelSteps) {
+                admin
+                  .from("funnel_events")
+                  .insert({
+                    funnel_id: step.funnel_id,
+                    funnel_step_id: step.id,
+                    event_type: "conversion",
+                    user_id: profile.id,
+                    stripe_session_id: session.id,
+                  })
+                  .then(() => {});
+              }
+            }
           }
         }
 

@@ -109,7 +109,7 @@ create extension if not exists pg_net;
 -- from Supabase vault secrets at execution time (not schedule time).
 --
 -- To configure, set these secrets in your Supabase dashboard:
---   vault.secrets: site_url = "https://your-app.vercel.app"
+--   vault.secrets: site_url = "https://your-app.up.railway.app"
 --   vault.secrets: cron_secret = "your-random-secret"
 --
 -- Or use current_setting:

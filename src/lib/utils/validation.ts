@@ -52,6 +52,29 @@ export const blogPostSchema = z.object({
 
 export type BlogPostInput = z.infer<typeof blogPostSchema>
 
+// ── Custom page ────────────────────────────────────────────────────────────
+
+export const customPageSlugSchema = z
+  .string()
+  .min(1, 'Slug is required')
+  .max(200, 'Slug is too long')
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase alphanumeric with hyphens')
+
+export type CustomPageSlug = z.infer<typeof customPageSlugSchema>
+
+// ── Lead capture (extended for custom pages) ───────────────────────────────
+
+export const leadCaptureSchema = z.object({
+  email: emailSchema,
+  name: z.string().max(200).optional(),
+  source: z.string().max(100).optional(),
+  page_slug: z.string().max(200).optional(),
+  lead_magnet: z.string().max(200).optional(),
+  funnel_step_id: z.string().uuid().optional(),
+})
+
+export type LeadCaptureInput = z.infer<typeof leadCaptureSchema>
+
 // ── Agent configuration ─────────────────────────────────────────────────────
 
 export const agentConfigSchema = z.object({

@@ -1,31 +1,79 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { AgentMessage, ToolCallResult } from '@/types'
 
 interface UseAgentChatOptions {
   agentId: string
+  /** Resume an existing conversation by ID */
   conversationId?: string
+  /** Automatically load the most recent conversation on mount */
+  autoResume?: boolean
 }
 
 interface UseAgentChatReturn {
   messages: AgentMessage[]
   sendMessage: (content: string) => Promise<void>
   isLoading: boolean
+  isLoadingHistory: boolean
   toolCalls: ToolCallResult[]
   error: string | null
   clearMessages: () => void
+  conversationId: string | undefined
+  setConversationId: (id: string | undefined) => void
+  /** Current status text during agent processing */
+  thinkingStatus: string
+  /** Tool names currently being executed */
+  activeTools: string[]
+  /** Currently active delegation */
+  activeDelegation: { specialist: string; specialistName: string } | null
 }
 
 export function useAgentChat({
   agentId,
-  conversationId,
+  conversationId: initialConversationId,
+  autoResume = false,
 }: UseAgentChatOptions): UseAgentChatReturn {
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [toolCalls, setToolCalls] = useState<ToolCallResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | undefined>(initialConversationId)
+  const [thinkingStatus, setThinkingStatus] = useState('')
+  const [activeTools, setActiveTools] = useState<string[]>([])
+  const [activeDelegation, setActiveDelegation] = useState<{ specialist: string; specialistName: string } | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Auto-resume: load the most recent conversation on mount
+  useEffect(() => {
+    if (!autoResume || initialConversationId) return
+
+    async function loadLatest() {
+      setIsLoadingHistory(true)
+      try {
+        const res = await fetch(
+          `/api/agent/conversations?agentId=${encodeURIComponent(agentId)}`
+        )
+        const data = await res.json()
+        if (data.conversations?.length > 0) {
+          const latestId = data.conversations[0].id
+          // Load the conversation messages
+          const { getUserConversation } = await import('@/actions/agents')
+          const conv = await getUserConversation(latestId)
+          const msgs = (conv.messages as unknown as AgentMessage[]) ?? []
+          setMessages(msgs)
+          setConversationId(latestId)
+        }
+      } catch {
+        // No history to load
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    loadLatest()
+  }, [agentId, autoResume, initialConversationId])
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -33,6 +81,8 @@ export function useAgentChat({
 
       setError(null)
       setIsLoading(true)
+      setThinkingStatus('Starting...')
+      setActiveTools([])
 
       // Add user message immediately
       const userMessage: AgentMessage = {
@@ -48,6 +98,10 @@ export function useAgentChat({
       }
       abortControllerRef.current = new AbortController()
 
+      // Accumulate data across the stream
+      const collectedToolCalls: ToolCallResult[] = []
+      let assistantText = ''
+
       try {
         const response = await fetch('/api/agent/chat', {
           method: 'POST',
@@ -56,7 +110,6 @@ export function useAgentChat({
             agentId,
             conversationId,
             message: content,
-            history: messages,
           }),
           signal: abortControllerRef.current.signal,
         })
@@ -68,96 +121,94 @@ export function useAgentChat({
           )
         }
 
-        // Handle streaming response
-        if (
-          response.headers
-            .get('content-type')
-            ?.includes('text/event-stream')
-        ) {
-          const reader = response.body?.getReader()
-          const decoder = new TextDecoder()
-          let assistantContent = ''
+        // Handle SSE stream
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('No response stream')
 
-          if (reader) {
-            // Add a placeholder assistant message
-            const assistantMessage: AgentMessage = {
-              role: 'assistant',
-              content: '',
-              timestamp: new Date().toISOString(),
-            }
-            setMessages((prev) => [...prev, assistantMessage])
+        const decoder = new TextDecoder()
+        let buffer = ''
 
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
 
-              const chunk = decoder.decode(value, { stream: true })
-              const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
 
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6)
-                  if (data === '[DONE]') continue
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
 
-                  try {
-                    const parsed = JSON.parse(data)
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
 
-                    if (parsed.type === 'text') {
-                      assistantContent += parsed.content
-                      setMessages((prev) => {
-                        const updated = [...prev]
-                        const last = updated[updated.length - 1]
-                        if (last && last.role === 'assistant') {
-                          updated[updated.length - 1] = {
-                            ...last,
-                            content: assistantContent,
-                          }
-                        }
-                        return updated
-                      })
-                    } else if (parsed.type === 'tool_call') {
-                      setToolCalls((prev) => [
-                        ...prev,
-                        {
-                          name: parsed.name,
-                          input: parsed.input,
-                          output: parsed.output,
-                          status: parsed.status || 'completed',
-                        },
-                      ])
-                    }
-                  } catch {
-                    // Skip unparseable lines
+            try {
+              const event = JSON.parse(data)
+
+              switch (event.type) {
+                case 'status':
+                  setThinkingStatus(event.message)
+                  break
+
+                case 'tool_start':
+                  setThinkingStatus('Using tools...')
+                  setActiveTools((prev) => [...prev, event.toolName])
+                  break
+
+                case 'tool_end':
+                  setActiveTools((prev) => prev.filter((t) => t !== event.toolName))
+                  break
+
+                case 'delegation_start':
+                  setActiveDelegation({
+                    specialist: event.specialist,
+                    specialistName: event.specialistName,
+                  })
+                  setThinkingStatus(`Consulting ${event.specialistName}...`)
+                  break
+
+                case 'delegation_end':
+                  setActiveDelegation(null)
+                  break
+
+                case 'text':
+                  assistantText = event.content
+                  break
+
+                case 'done':
+                  if (event.conversationId) {
+                    setConversationId(event.conversationId)
                   }
-                }
+                  // Use full tool call data from done event
+                  if (event.toolCalls?.length > 0) {
+                    collectedToolCalls.length = 0
+                    for (const tc of event.toolCalls) {
+                      collectedToolCalls.push({
+                        name: tc.name,
+                        input: tc.input,
+                        output: tc.result,
+                        status: 'completed',
+                      })
+                    }
+                  }
+                  break
               }
+            } catch {
+              // Skip unparseable lines
             }
-          }
-        } else {
-          // Handle non-streaming (JSON) response
-          const data = await response.json()
-
-          const assistantMessage: AgentMessage = {
-            role: 'assistant',
-            content: data.content || data.message || '',
-            timestamp: new Date().toISOString(),
-            tool_calls: data.tool_calls,
-          }
-
-          setMessages((prev) => [...prev, assistantMessage])
-
-          if (data.tool_calls) {
-            setToolCalls((prev) => [
-              ...prev,
-              ...data.tool_calls.map((tc: ToolCallResult) => ({
-                name: tc.name,
-                input: tc.input,
-                output: tc.output,
-                status: tc.status || 'completed',
-              })),
-            ])
           }
         }
+
+        // Add assistant message
+        const assistantMessage: AgentMessage = {
+          role: 'assistant',
+          content: assistantText || '',
+          timestamp: new Date().toISOString(),
+          tool_calls: collectedToolCalls.length > 0 ? collectedToolCalls : undefined,
+        }
+
+        setMessages((prev) => [...prev, assistantMessage])
+        setToolCalls((prev) => [...prev, ...collectedToolCalls])
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return
@@ -177,16 +228,33 @@ export function useAgentChat({
         ])
       } finally {
         setIsLoading(false)
+        setThinkingStatus('')
+        setActiveTools([])
+        setActiveDelegation(null)
       }
     },
-    [agentId, conversationId, isLoading, messages]
+    [agentId, conversationId, isLoading]
   )
 
   const clearMessages = useCallback(() => {
     setMessages([])
     setToolCalls([])
     setError(null)
+    setConversationId(undefined)
   }, [])
 
-  return { messages, sendMessage, isLoading, toolCalls, error, clearMessages }
+  return {
+    messages,
+    sendMessage,
+    isLoading,
+    isLoadingHistory,
+    toolCalls,
+    error,
+    clearMessages,
+    conversationId,
+    setConversationId,
+    thinkingStatus,
+    activeTools,
+    activeDelegation,
+  }
 }

@@ -58,7 +58,7 @@ export function FloatingAgentWidget({
 
         {/* Chat body */}
         <div className="h-[calc(100%-48px)]">
-          {isOpen && <ChatContainer agentSlug={agentSlug} />}
+          {isOpen && <ChatContainer agentSlug={agentSlug} showSidebar={false} />}
         </div>
       </div>
 

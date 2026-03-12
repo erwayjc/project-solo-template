@@ -11,7 +11,7 @@ import { getAnthropic } from '@/lib/claude/client'
 import type Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { McpClient } from '@/mcp/client'
-import type { AgentConfig, AgentMessage, AgentMemory, AgentHandoff, ToolCall } from './types'
+import type { AgentConfig, AgentMessage, AgentMemory, AgentHandoff, ToolCall, AgentProgressEvent } from './types'
 import type { ToolDefinition } from '@/mcp/types'
 import type { Json } from '@/lib/supabase/types'
 import {
@@ -19,8 +19,14 @@ import {
   DELEGATION_MODE_PREAMBLE,
   MAX_DELEGATION_ROUNDS,
   createDelegationTool,
+  createDelegationStatusTool,
 } from './orchestration'
+import type { DelegationState } from './types'
 import { getPromptBuilder } from './prompts/index'
+import { getSkillsForAgent } from './skills/loader'
+import { budgetSkills } from './skills/budgeting'
+import { createLoadSkillReferenceTool } from './skills/reference-tool'
+import type { SkillContext } from './skills/types'
 
 // Maximum rounds of tool-use before forcing a text response
 const MAX_TOOL_ROUNDS = 15
@@ -68,12 +74,15 @@ export class AgentEngine {
     agentId: string,
     userMessage: string,
     userId: string,
-    conversationId?: string
+    conversationId?: string,
+    onProgress?: (event: AgentProgressEvent) => void
   ): Promise<{
     response: string
     conversationId: string
     toolCalls: ToolCall[]
+    tokensUsed: number
   }> {
+    const emit = onProgress ?? (() => {})
     const turnStartTime = Date.now()
     const supabase = createAdminClient()
 
@@ -98,8 +107,11 @@ export class AgentEngine {
       tools: (agentRow.tools as string[]) ?? [],
       mcpServers: (agentRow.mcp_servers as string[]) ?? ['internal'],
       dataAccess: (agentRow.data_access as unknown as Record<string, 'read' | 'write' | 'none'>) ?? {},
+      model: (agentRow.model as string) ?? 'claude-sonnet-4-20250514',
       isSystem: agentRow.is_system as boolean,
     }
+
+    emit({ type: 'status', message: 'Preparing conversation...' })
 
     // -----------------------------------------------------------------
     // 2. Load or create conversation (with user ownership check)
@@ -156,6 +168,7 @@ export class AgentEngine {
     // -----------------------------------------------------------------
     // 3b. Retrieve relevant memories for this agent
     // -----------------------------------------------------------------
+    emit({ type: 'status', message: 'Retrieving context...' })
     let memoryContext = ''
     try {
       const embedResponse = await fetch(
@@ -251,10 +264,75 @@ export class AgentEngine {
     // -----------------------------------------------------------------
     // 3d. Register delegation tool if agent is orchestration-eligible
     // -----------------------------------------------------------------
+    let delegationStateRef: DelegationState | undefined
     if (agent.tools.includes('delegate_to_agent')) {
+      const delegationTool = createDelegationTool(this, masterContext, convId, turnStartTime, emit)
+      delegationStateRef = (delegationTool as ReturnType<typeof createDelegationTool> & { _delegationState: DelegationState })._delegationState
+      this.mcpClient.addTool(delegationTool)
       this.mcpClient.addTool(
-        createDelegationTool(this, masterContext, convId, turnStartTime)
+        createDelegationStatusTool(() => delegationStateRef, turnStartTime)
       )
+    }
+
+    // -----------------------------------------------------------------
+    // 3e. Load skills for this agent
+    // -----------------------------------------------------------------
+    const agentSkills = getSkillsForAgent(agent.slug)
+    let skillCatalog = ''
+    let activeSkillBodies = ''
+
+    const skillContext: SkillContext = {
+      availableSkills: agentSkills,
+      activeSkills: [],
+      loadedReferences: new Map(),
+    }
+
+    if (agentSkills.length > 0) {
+      // Detect explicitly invoked skills (via /slug or name mention)
+      const activeSlugs = agentSkills
+        .filter(
+          (s) =>
+            userMessage.includes(`/${s.slug}`) ||
+            userMessage.toLowerCase().includes(s.frontmatter.name.toLowerCase())
+        )
+        .map((s) => s.slug)
+
+      // Apply prompt budgeting
+      const budget = budgetSkills(agentSkills, userMessage, activeSlugs)
+
+      if (budget.trimmed.length > 0) {
+        console.warn(
+          `[Skills] Budget exceeded: trimmed ${budget.trimmed.length} skills (${budget.trimmed.map((s) => s.slug).join(', ')}) for agent ${agent.slug}`
+        )
+      }
+
+      // Build skill catalog (name + description + references)
+      const catalogLines = ['## Available Skills', '']
+      for (const skill of budget.included) {
+        catalogLines.push(`### ${skill.frontmatter.name}`)
+        catalogLines.push(skill.frontmatter.description)
+        if (skill.referenceFiles.length > 0) {
+          catalogLines.push(
+            `**References**: ${skill.referenceFiles.join(', ')} — use \`load_skill_reference\` tool to load detailed guidance.`
+          )
+        }
+        catalogLines.push('')
+      }
+      skillCatalog = catalogLines.join('\n')
+
+      // Inject full body for active (explicitly invoked) skills
+      const activeSkills = budget.included.filter((s) =>
+        activeSlugs.includes(s.slug)
+      )
+      if (activeSkills.length > 0) {
+        skillContext.activeSkills = activeSkills
+        activeSkillBodies = activeSkills
+          .map((s) => `## Skill: ${s.frontmatter.name}\n\n${s.body}`)
+          .join('\n\n')
+      }
+
+      // Register the load_skill_reference tool
+      this.mcpClient.addTool(createLoadSkillReferenceTool(skillContext))
     }
 
     // -----------------------------------------------------------------
@@ -278,7 +356,7 @@ export class AgentEngine {
         ? agent.systemPrompt.replace('{{MASTER_CONTEXT}}', masterContext)
         : `${agent.systemPrompt}\n\n---\n\n${masterContext}`
 
-    const systemPrompt = [basePrompt, memoryContext, handoffContext]
+    const systemPrompt = [basePrompt, skillCatalog, activeSkillBodies, memoryContext, handoffContext]
       .filter(Boolean)
       .join('\n\n')
 
@@ -294,17 +372,23 @@ export class AgentEngine {
     const allToolCalls: ToolCall[] = []
     let finalResponse = ''
     let rounds = 0
+    let totalTokensUsed = 0
 
     while (rounds < MAX_TOOL_ROUNDS) {
       rounds++
 
+      emit({ type: 'status', message: rounds === 1 ? 'Thinking...' : 'Processing tool results...' })
+
       const apiResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: agent.model,
         max_tokens: 4096,
         system: systemPrompt,
         tools: claudeTools as Anthropic.Messages.Tool[],
         messages: messages as Anthropic.Messages.MessageParam[],
       })
+
+      // Accumulate token usage from each API round
+      totalTokensUsed += (apiResponse.usage?.input_tokens ?? 0) + (apiResponse.usage?.output_tokens ?? 0)
 
       const contentBlocks = apiResponse.content as AnthropicContentBlock[]
 
@@ -331,12 +415,16 @@ export class AgentEngine {
       const toolResults: AnthropicToolResultBlock[] = []
 
       for (const block of toolUseBlocks) {
+        emit({ type: 'tool_start', toolName: block.name, toolCallId: block.id })
+
         const enrichedInput = {
           ...block.input,
           _agent_id: agent.id,
           _conversation_id: convId,
         }
         const result = await this.mcpClient.executeTool(block.name, enrichedInput)
+
+        emit({ type: 'tool_end', toolName: block.name, toolCallId: block.id })
 
         const toolCall: ToolCall = {
           id: block.id,
@@ -396,10 +484,20 @@ export class AgentEngine {
       })
       .eq('id', convId)
 
+    emit({ type: 'text', content: finalResponse })
+    emit({
+      type: 'done',
+      conversationId: convId,
+      toolCalls: allToolCalls,
+      tokensUsed: totalTokensUsed,
+      delegations: delegationStateRef?.records,
+    })
+
     return {
       response: finalResponse,
       conversationId: convId,
       toolCalls: allToolCalls,
+      tokensUsed: totalTokensUsed,
     }
   }
 
@@ -424,6 +522,7 @@ export class AgentEngine {
     specialist: string
     toolCalls: string[]
     roundsUsed: number
+    tokensUsed: number
   }> {
     // Time budget check
     if (timeBudgetMs < 10000) {
@@ -446,7 +545,23 @@ export class AgentEngine {
           )
         : `${specialistConfig.systemPrompt}\n\n---\n\n${masterContext}`
 
-    const systemPrompt = `${DELEGATION_MODE_PREAMBLE}\n\n${basePrompt}`
+    // Load skills for the specialist
+    const specialistSkills = getSkillsForAgent(specialistConfig.slug)
+    let specialistSkillCatalog = ''
+    if (specialistSkills.length > 0) {
+      const budget = budgetSkills(specialistSkills, briefingMessage, [])
+      const catalogLines = ['## Available Skills', '']
+      for (const skill of budget.included) {
+        catalogLines.push(`### ${skill.frontmatter.name}`)
+        catalogLines.push(skill.frontmatter.description)
+        catalogLines.push('')
+      }
+      specialistSkillCatalog = catalogLines.join('\n')
+    }
+
+    const systemPrompt = [DELEGATION_MODE_PREAMBLE, basePrompt, specialistSkillCatalog]
+      .filter(Boolean)
+      .join('\n\n')
 
     // Gather specialist tools, excluding delegation tools
     const availableTools = this.mcpClient
@@ -471,6 +586,7 @@ export class AgentEngine {
     const toolCallNames: string[] = []
     let finalResponse = ''
     let rounds = 0
+    let delegationTokensUsed = 0
 
     while (rounds < maxRounds) {
       // Timeout enforcement
@@ -481,12 +597,15 @@ export class AgentEngine {
       rounds++
 
       const apiResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: specialistConfig.model,
         max_tokens: 4096,
         system: systemPrompt,
         tools: claudeTools as Anthropic.Messages.Tool[],
         messages: messages as Anthropic.Messages.MessageParam[],
       })
+
+      // Track token usage
+      delegationTokensUsed += (apiResponse.usage?.input_tokens ?? 0) + (apiResponse.usage?.output_tokens ?? 0)
 
       const contentBlocks =
         apiResponse.content as AnthropicContentBlock[]
@@ -543,6 +662,7 @@ export class AgentEngine {
       specialist: specialistConfig.name,
       toolCalls: toolCallNames,
       roundsUsed: rounds,
+      tokensUsed: delegationTokensUsed,
     }
   }
 }

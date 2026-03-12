@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const REQUIRED_ENV_VARS = [
   "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
@@ -121,7 +120,10 @@ export async function GET(request: NextRequest) {
 
   // --- Environment variable checks ---
 
-  const missingEnvVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+  const missingEnvVars: string[] = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    missingEnvVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
   const environment = {
     status: (missingEnvVars.length === 0 ? "pass" : "warn") as
       | "pass"

@@ -9,7 +9,9 @@ import { getSiteUrl } from '@/lib/utils/url'
  */
 export async function createCheckoutSession(
   priceId: string,
-  customerEmail?: string
+  customerEmail?: string,
+  successUrl?: string,
+  cancelUrl?: string
 ): Promise<{ url: string }> {
   const supabase = await createClient()
 
@@ -25,6 +27,14 @@ export async function createCheckoutSession(
   }
 
   const baseUrl = getSiteUrl()
+
+  // Validate custom URLs are same-origin to prevent open redirect
+  if (successUrl && !successUrl.startsWith(baseUrl)) {
+    throw new Error('successUrl must be on the same origin')
+  }
+  if (cancelUrl && !cancelUrl.startsWith(baseUrl)) {
+    throw new Error('cancelUrl must be on the same origin')
+  }
 
   // If the user is authenticated, check for an existing Stripe customer ID
   let customerId: string | undefined
@@ -49,8 +59,8 @@ export async function createCheckoutSession(
         quantity: 1,
       },
     ],
-    success_url: `${baseUrl}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${baseUrl}/purchase/cancel`,
+    success_url: successUrl || `${baseUrl}/purchase/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: cancelUrl || `${baseUrl}/purchase/cancel`,
     metadata: {
       user_id: user?.id || '',
     },

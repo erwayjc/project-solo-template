@@ -12,8 +12,10 @@ const navGroups = [
   {
     label: "AI",
     items: [
+      { href: "/admin/command-center", label: "Command Center", icon: "Activity" },
       { href: "/admin/dev-agent", label: "Dev Agent", icon: "Bot" },
       { href: "/admin/agents", label: "Agents", icon: "Users" },
+      { href: "/admin/skills", label: "Skills", icon: "Sparkles" },
     ],
   },
   {
@@ -30,6 +32,7 @@ const navGroups = [
       { href: "/admin/content", label: "Content", icon: "FileText" },
       { href: "/admin/calendar", label: "Calendar", icon: "CalendarDays" },
       { href: "/admin/testimonials", label: "Testimonials", icon: "Quote" },
+      { href: "/admin/funnels", label: "Funnels", icon: "GitBranch" },
       { href: "/admin/email", label: "Email", icon: "Mail" },
     ],
   },
