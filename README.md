@@ -2,7 +2,7 @@
 
 Your AI-powered business platform — a complete business-in-a-box for solo creators and entrepreneurs.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/erwayjc/project-solo-template)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/H2cdmz?referralCode=J8cxkr)
 
 ---
 
