@@ -1,0 +1,14 @@
+{
+  "name": "project-solo-worker",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "cd .. && npm install",
+    "start": "cd .. && npx tsx worker/index.ts"
+  },
+  "dependencies": {
+    "tsx": "^4.21.0"
+  }
+}
