@@ -5,7 +5,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "cd .. && npm install --prefer-offline",
+    "build": "cd .. && npm install --cache /tmp/.npm-worker",
     "start": "cd .. && npx tsx worker/index.ts"
   }
 }
