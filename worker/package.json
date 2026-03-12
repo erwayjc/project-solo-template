@@ -1,10 +1,4 @@
 {
   "name": "project-solo-worker",
-  "private": true,
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "start": "cd .. && npm install && npx tsx worker/index.ts"
-  }
+  "private": true
 }
