@@ -49,6 +49,7 @@ export type SiteConfigUpdate = Tables['site_config']['Update']
 export type ProductUpdate = Tables['products']['Update']
 export type ModuleUpdate = Tables['modules']['Update']
 export type LessonUpdate = Tables['lessons']['Update']
+export type PageUpdate = Tables['pages']['Update']
 export type BlogPostUpdate = Tables['blog_posts']['Update']
 export type AgentUpdate = Tables['agents']['Update']
 export type TestimonialUpdate = Tables['testimonials']['Update']
@@ -85,6 +86,8 @@ export type GoalUpdate = Tables['goals']['Update']
 export type GoalTask = Tables['goal_tasks']['Row']
 export type GoalTaskInsert = Tables['goal_tasks']['Insert']
 export type GoalTaskUpdate = Tables['goal_tasks']['Update']
+export type PageTemplate = Tables['page_templates']['Row']
+export type PageTemplateInsert = Tables['page_templates']['Insert']
 
 // Re-export the Database type itself
 export type { Database }

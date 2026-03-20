@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth/helpers'
 import { stripe } from '@/lib/stripe/client'
 import { getSiteUrl } from '@/lib/utils/url'
 
@@ -98,15 +99,7 @@ export async function getSubscriptions(
     productId: string
   }>
 }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   // Verify the customerId belongs to the authenticated user
   const { data: profile } = await supabase
@@ -151,15 +144,7 @@ export async function getSubscriptions(
 export async function createCustomerPortalSession(
   customerId: string
 ): Promise<{ url: string }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   // Verify the customerId belongs to the authenticated user
   const { data: profile } = await supabase

@@ -56,8 +56,22 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // ── 2b. Setup wizard — accessible without auth (creates the first admin account) ──
+  // ── 2c. Setup wizard — special handling before auth gate ──
+  // The setup wizard needs unauthenticated access when setup is NOT complete
+  // (since the first admin account hasn't been created yet). Once setup IS
+  // complete, /admin/setup redirects to /admin and requires normal admin auth.
   if (pathname === '/admin/setup' || pathname.startsWith('/admin/setup/')) {
+    const { data: setupConfig } = await supabase
+      .from('site_config')
+      .select('setup_complete')
+      .eq('id', 1)
+      .single()
+
+    if (setupConfig?.setup_complete) {
+      // Setup already done — redirect to admin dashboard (requires auth)
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
+    // Setup not complete — allow access without auth to create first admin
     return response
   }
 
@@ -95,7 +109,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
-    // All other /admin/* routes require setup to be complete
+    // Site config is queried on every admin request — this is intentional.
+    // One lightweight query per request is acceptable; middleware runs per-request
+    // and caching here would add complexity without meaningful performance gain.
     const { data: siteConfig } = await supabase
       .from('site_config')
       .select('setup_complete')

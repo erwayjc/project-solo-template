@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth, requireAdmin } from '@/lib/auth/helpers'
 import type { Module, Lesson, LessonProgress } from '@/types/database'
 import type { Json } from '@/lib/supabase/types'
 
@@ -49,25 +50,7 @@ export async function createModule(moduleData: {
   sort_order?: number
   is_published?: boolean
 }): Promise<Module> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('modules')
@@ -86,25 +69,7 @@ export async function updateModule(
   id: string,
   moduleData: Partial<Omit<Module, 'id'>>
 ): Promise<Module> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('modules')
@@ -147,25 +112,7 @@ export async function createLesson(lessonData: {
   sort_order?: number
   is_published?: boolean
 }): Promise<Lesson> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('lessons')
@@ -187,25 +134,7 @@ export async function updateLesson(
   id: string,
   lessonData: Partial<Omit<Lesson, 'id'>>
 ): Promise<Lesson> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('lessons')
@@ -222,25 +151,7 @@ export async function updateLesson(
 }
 
 export async function deleteLesson(id: string): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase
     .from('lessons')
@@ -257,58 +168,35 @@ export async function deleteLesson(id: string): Promise<void> {
 export async function toggleLessonProgress(
   lessonId: string
 ): Promise<LessonProgress> {
-  const supabase = await createClient()
+  const { supabase, user } = await requireAuth()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  // Check if progress record exists
+  // Check current state to determine toggle direction
   const { data: existing } = await supabase
     .from('lesson_progress')
-    .select('*')
+    .select('completed')
     .eq('user_id', user.id)
     .eq('lesson_id', lessonId)
-    .single()
+    .maybeSingle()
 
-  if (existing) {
-    // Toggle completion
-    const newCompleted = !existing.completed
-    const { data, error } = await supabase
-      .from('lesson_progress')
-      .update({
-        completed: newCompleted,
-        completed_at: newCompleted ? new Date().toISOString() : null,
-      })
-      .eq('id', existing.id)
-      .select()
-      .single()
+  // Toggle: if exists and completed, mark incomplete; otherwise mark complete
+  const newCompleted = !(existing?.completed ?? false)
 
-    if (error) {
-      throw new Error(`Failed to update progress: ${error.message}`)
-    }
-
-    return data as LessonProgress
-  }
-
-  // Create new progress record as completed
   const { data, error } = await supabase
     .from('lesson_progress')
-    .insert({
-      user_id: user.id,
-      lesson_id: lessonId,
-      completed: true,
-      completed_at: new Date().toISOString(),
-    })
+    .upsert(
+      {
+        user_id: user.id,
+        lesson_id: lessonId,
+        completed: newCompleted,
+        completed_at: newCompleted ? new Date().toISOString() : null,
+      },
+      { onConflict: 'user_id,lesson_id' }
+    )
     .select()
     .single()
 
   if (error) {
-    throw new Error(`Failed to create progress: ${error.message}`)
+    throw new Error(`Failed to toggle progress: ${error.message}`)
   }
 
   return data as LessonProgress
@@ -319,15 +207,7 @@ export async function getCourseProgress(): Promise<{
   completed: number
   percentage: number
 }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   // Count total published lessons
   const { count: totalLessons } = await supabase

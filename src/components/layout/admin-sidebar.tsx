@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu, X } from "lucide-react";
 import type { OnboardingProgress } from "@/types";
+import { Kbd } from "@/components/ui/kbd";
 
 const navGroups = [
   {
@@ -13,7 +16,7 @@ const navGroups = [
     label: "AI",
     items: [
       { href: "/admin/command-center", label: "Command Center", icon: "Activity" },
-      { href: "/admin/dev-agent", label: "Dev Agent", icon: "Bot" },
+      { href: "/admin/dev-agent", label: "Dev Agent", icon: "Bot", shortcut: "⌘J" },
       { href: "/admin/agents", label: "Agents", icon: "Users" },
       { href: "/admin/skills", label: "Skills", icon: "Sparkles" },
     ],
@@ -32,6 +35,7 @@ const navGroups = [
       { href: "/admin/content", label: "Content", icon: "FileText" },
       { href: "/admin/calendar", label: "Calendar", icon: "CalendarDays" },
       { href: "/admin/testimonials", label: "Testimonials", icon: "Quote" },
+      { href: "/admin/pages", label: "Pages", icon: "Globe" },
       { href: "/admin/funnels", label: "Funnels", icon: "GitBranch" },
       { href: "/admin/email", label: "Email", icon: "Mail" },
     ],
@@ -46,10 +50,12 @@ const navGroups = [
 
 interface AdminSidebarProps {
   onboardingProgress?: OnboardingProgress;
+  updateAvailable?: boolean;
 }
 
-export function AdminSidebar({ onboardingProgress }: AdminSidebarProps) {
+export function AdminSidebar({ onboardingProgress, updateAvailable }: AdminSidebarProps) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Calculate progress count
   let completedCount = 0;
@@ -72,43 +78,60 @@ export function AdminSidebar({ onboardingProgress }: AdminSidebarProps) {
   const showProgress =
     onboardingProgress && !onboardingProgress.guide_dismissed;
 
-  return (
-    <aside className="flex w-64 flex-col border-r bg-white">
-      <div className="flex h-16 items-center border-b px-6">
+  const sidebarContent = (
+    <>
+      <div className="flex h-14 items-center border-b px-6">
         <Link href="/admin" className="text-lg font-bold text-gray-900">
           Admin
         </Link>
+        <button
+          type="button"
+          className="ml-auto md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close sidebar"
+        >
+          <X className="h-5 w-5 text-gray-500" />
+        </button>
       </div>
-      <nav className="flex-1 overflow-y-auto p-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {navGroups.map((group) => (
-          <div key={group.label} className="mb-6">
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <div key={group.label} className="mb-5">
+            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {group.label}
             </p>
-            {group.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`mb-1 flex items-center rounded-md px-3 py-2 text-sm font-medium ${
-                  pathname === item.href
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {group.items.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`group mb-0.5 flex items-center justify-between rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
+                    isActive
+                      ? "border-l-2 border-blue-600 bg-blue-50/60 pl-[10px] text-blue-700"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {"shortcut" in item && item.shortcut && (
+                    <Kbd className="opacity-0 transition-opacity group-hover:opacity-100">
+                      {item.shortcut}
+                    </Kbd>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
       {showProgress && (
         <div className="border-t px-4 py-3">
-          <Link href="/admin" className="block">
+          <Link href="/admin" className="block" onClick={() => setMobileOpen(false)}>
             <p className="text-xs font-medium text-gray-500">
               Setup: {completedCount}/{totalCount} complete
             </p>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-100">
               <div
                 className="h-full rounded-full bg-blue-600 transition-all duration-500"
                 style={{
@@ -120,18 +143,65 @@ export function AdminSidebar({ onboardingProgress }: AdminSidebarProps) {
         </div>
       )}
 
-      <div className="border-t p-4">
+      <div className="border-t px-3 py-3 space-y-0.5">
+        <Link
+          href="/admin/updates"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center justify-between rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
+            pathname === "/admin/updates"
+              ? "border-l-2 border-blue-600 bg-blue-50/60 pl-[10px] text-blue-700"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          <span>Updates</span>
+          {updateAvailable && (
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+          )}
+        </Link>
         <Link
           href="/admin/settings"
-          className={`flex items-center rounded-md px-3 py-2 text-sm font-medium ${
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
             pathname === "/admin/settings"
-              ? "bg-blue-50 text-blue-700"
-              : "text-gray-700 hover:bg-gray-50"
+              ? "border-l-2 border-blue-600 bg-blue-50/60 pl-[10px] text-blue-700"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
           }`}
         >
           Settings
         </Link>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        type="button"
+        className="fixed bottom-4 left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg md:hidden"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open sidebar"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Mobile overlay + slide-in sidebar */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative z-50 flex h-full w-64 flex-col bg-white shadow-xl">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden w-64 flex-col border-r bg-white md:flex">
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

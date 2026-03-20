@@ -16,6 +16,7 @@ export function BlogCard({
   return (
     <article className="overflow-hidden rounded-lg border bg-white shadow-sm">
       {image && (
+        /* eslint-disable-next-line @next/next/no-img-element -- dynamic user-provided URL */
         <img src={image} alt={title} className="h-48 w-full object-cover" />
       )}
       <div className="p-6">

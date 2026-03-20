@@ -81,6 +81,7 @@ export function ImageUpload({
     <div className={cn("space-y-2", className)}>
       {value ? (
         <div className="relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic user upload preview */}
           <img
             src={value}
             alt="Upload preview"

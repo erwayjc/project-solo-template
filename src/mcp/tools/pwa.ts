@@ -170,14 +170,14 @@ export const tools: ToolDefinition[] = [
 
       if (cErr) return { success: false, error: cErr.message }
 
-      const existingPwa = ((config as any).pwa_config as Record<string, unknown>) ?? {}
+      const existingPwa = ((config as unknown as Record<string, unknown>).pwa_config as Record<string, unknown>) ?? {}
       const mergedPwa = { ...existingPwa, ...updates }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('site_config')
         .update({
           pwa_config: mergedPwa,
-        } as any)
+        } as unknown as Record<string, never>)
         .eq('id', 1)
         .select()
         .single()

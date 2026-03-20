@@ -63,6 +63,23 @@ export async function POST() {
       }
     })
 
+    // Initialize version tracking from version.json
+    const versionPath = path.join(process.cwd(), 'version.json')
+    if (fs.existsSync(versionPath)) {
+      try {
+        const versionData = JSON.parse(fs.readFileSync(versionPath, 'utf-8'))
+        await admin
+          .from('site_config')
+          .update({
+            template_version: versionData.version || '1.0.0',
+            last_migration_number: migrationsRun,
+          })
+          .eq('id', 1)
+      } catch (versionErr) {
+        console.warn('Failed to set initial version tracking:', versionErr)
+      }
+    }
+
     return NextResponse.json({
       migrated: true,
       migrationsRun,

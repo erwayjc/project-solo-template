@@ -137,7 +137,7 @@ export const tools: ToolDefinition[] = [
 
       const { data: sequence, error: seqError } = await supabase
         .from('email_sequences')
-        .update(metaUpdates as any)
+        .update(metaUpdates as unknown as Record<string, never>)
         .eq('id', id)
         .select()
         .single()
@@ -256,7 +256,16 @@ export const tools: ToolDefinition[] = [
         return { success: false, error: 'No recipients matched the audience filter.' }
       }
 
-      const fromAddress = process.env.EMAIL_FROM ?? 'hello@example.com'
+      const fromAddress = process.env.EMAIL_FROM
+      if (!fromAddress) {
+        return { success: false, error: 'EMAIL_FROM environment variable is not configured.' }
+      }
+
+      // Safety limit: cap recipients per broadcast to prevent quota exhaustion
+      const MAX_RECIPIENTS = 5000
+      if (recipients.length > MAX_RECIPIENTS) {
+        return { success: false, error: `Recipient count (${recipients.length}) exceeds maximum of ${MAX_RECIPIENTS}. Narrow your audience filter.` }
+      }
 
       // Send emails in batches via Resend
       let sentCount = 0

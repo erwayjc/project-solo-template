@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/helpers'
 import { encrypt } from '@/lib/utils/encryption'
 import type { McpConnection, SiteConfig } from '@/types/database'
 import type { BrandColors, HealthCheckResult } from '@/types'
@@ -10,25 +10,7 @@ import type { Json } from '@/lib/supabase/types'
  * Get the connection status for all integrated services.
  */
 export async function getIntegrationStatus(): Promise<HealthCheckResult[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  await requireAdmin()
 
   const results: HealthCheckResult[] = []
 
@@ -86,25 +68,7 @@ export async function updateIntegrationKey(
   service: string,
   key: string
 ): Promise<{ success: boolean }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Encrypt the key before storing
   const encryptedKey = encrypt(key)
@@ -135,25 +99,7 @@ export async function updateIntegrationKey(
 export async function testConnection(
   service: string
 ): Promise<HealthCheckResult> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  await requireAdmin()
 
   try {
     switch (service) {
@@ -214,25 +160,7 @@ export async function updateBranding(data: {
   logo_url?: string
   brand_colors?: BrandColors
 }): Promise<SiteConfig> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data: config, error } = await supabase
     .from('site_config')
@@ -255,25 +183,7 @@ export async function updateBranding(data: {
  * Get all configured MCP connections.
  */
 export async function getMcpConnections(): Promise<McpConnection[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('mcp_connections')

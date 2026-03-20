@@ -21,32 +21,36 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white p-6 shadow-sm",
+        "rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md",
         className,
       )}
     >
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-500">{label}</p>
         {icon && (
-          <span className="text-gray-400">{icon}</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            {icon}
+          </div>
         )}
       </div>
-      <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+        {value}
+      </p>
       {change !== undefined && (
-        <div className="mt-2 flex items-center gap-1 text-sm">
+        <div className="mt-3">
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 font-medium",
-              isPositive && "text-green-600",
-              isNegative && "text-red-600",
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+              isPositive && "bg-green-50 text-green-700",
+              isNegative && "bg-red-50 text-red-700",
             )}
           >
             <svg
-              className={cn("h-4 w-4", isNegative && "rotate-180")}
+              className={cn("h-3 w-3", isNegative && "rotate-180")}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={2.5}
             >
               <path
                 strokeLinecap="round"
@@ -56,7 +60,7 @@ export function MetricCard({
             </svg>
             {Math.abs(change)}%
           </span>
-          <span className="text-gray-400">vs last period</span>
+          <span className="ml-2 text-xs text-gray-400">vs last period</span>
         </div>
       )}
     </div>

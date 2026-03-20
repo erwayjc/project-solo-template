@@ -1,25 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/auth/helpers'
 import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
 import { getSiteUrl } from '@/lib/utils/url'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
-  return user
-}
 
 /**
  * Initiate Stripe Connect OAuth flow.

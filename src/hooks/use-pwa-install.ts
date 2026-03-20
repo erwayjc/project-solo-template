@@ -22,30 +22,20 @@ interface UsePwaInstallReturn {
  * Listens for the `beforeinstallprompt` event, tracks whether the app
  * is already installed, and provides a `promptInstall()` function.
  */
+function checkIsInstalled(): boolean {
+  if (typeof window === 'undefined') return false
+  if (window.matchMedia('(display-mode: standalone)').matches) return true
+  if ((window.navigator as unknown as { standalone?: boolean }).standalone === true) return true
+  return false
+}
+
 export function usePwaInstall(): UsePwaInstallReturn {
   const [isInstallable, setIsInstallable] = useState(false)
-  const [isInstalled, setIsInstalled] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(checkIsInstalled)
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
-    // Check if the app is already installed (standalone mode)
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia('(display-mode: standalone)').matches
-    ) {
-      setIsInstalled(true)
-      return
-    }
-
-    // Also check navigator.standalone for iOS
-    if (
-      typeof window !== 'undefined' &&
-      (window.navigator as unknown as { standalone?: boolean }).standalone ===
-        true
-    ) {
-      setIsInstalled(true)
-      return
-    }
+    if (isInstalled) return
 
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent the mini-infobar from appearing on mobile
@@ -70,7 +60,7 @@ export function usePwaInstall(): UsePwaInstallReturn {
       )
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [])
+  }, [isInstalled])
 
   const promptInstall = useCallback(async (): Promise<boolean> => {
     if (!deferredPromptRef.current) {

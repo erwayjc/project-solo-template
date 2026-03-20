@@ -9,7 +9,8 @@
  * end users, not the business owner. Its access and information sharing
  * must be tightly controlled.
  */
-export function buildSystemPrompt(masterContext: string): string {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for API parity with other agent prompt builders
+export function buildSystemPrompt(_masterContext: string): string {
   // Extract only the safe, customer-appropriate parts of the master context.
   // We deliberately do NOT pass the full master context to the support agent.
   return `You are the Support Agent for this business. You help customers with their questions, issues, and requests in a friendly, professional, and efficient manner.

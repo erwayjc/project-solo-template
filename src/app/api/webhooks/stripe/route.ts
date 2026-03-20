@@ -28,6 +28,19 @@ export async function POST(request: NextRequest) {
       const session = event.data.object;
       const customerEmail = session.customer_details?.email;
 
+      // Idempotency: skip if this payment was already processed
+      if (session.payment_intent) {
+        const { data: existingPurchase } = await admin
+          .from("purchases")
+          .select("id")
+          .eq("stripe_payment_id", session.payment_intent as string)
+          .maybeSingle();
+
+        if (existingPurchase) {
+          return NextResponse.json({ received: true });
+        }
+      }
+
       if (customerEmail) {
         // Update profile to customer role
         const { data: profile } = await admin
@@ -77,7 +90,7 @@ export async function POST(request: NextRequest) {
 
             if (funnelSteps && funnelSteps.length > 0) {
               for (const step of funnelSteps) {
-                admin
+                const { error: funnelError } = await admin
                   .from("funnel_events")
                   .insert({
                     funnel_id: step.funnel_id,
@@ -85,8 +98,11 @@ export async function POST(request: NextRequest) {
                     event_type: "conversion",
                     user_id: profile.id,
                     stripe_session_id: session.id,
-                  })
-                  .then(() => {});
+                  });
+
+                if (funnelError) {
+                  console.error(`Failed to record funnel event for step ${step.id}:`, funnelError.message);
+                }
               }
             }
           }

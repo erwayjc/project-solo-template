@@ -265,6 +265,16 @@ export function ChatContainer({
                     });
                   }
                 }
+                // Update sidebar with auto-generated title
+                if (event.title && event.conversationId) {
+                  setConversations((prev) =>
+                    prev.map((c) =>
+                      c.id === event.conversationId
+                        ? { ...c, title: event.title }
+                        : c
+                    )
+                  );
+                }
                 break;
             }
           } catch {

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Supabase Database types — hand-written to match SQL migrations (00001–00009).
+// Supabase Database types — hand-written to match SQL migrations (00001–00028).
 // Replace this file with auto-generated types once Supabase is running:
 //   npx supabase gen types typescript --local > src/lib/supabase/types.ts
 // ---------------------------------------------------------------------------
@@ -69,7 +69,13 @@ export interface Database {
           legal_contact_email: string | null
           cs_agent_config: Json
           onboarding_checklist: Json
+          resend_webhook_secret: string | null
           stripe_connect_account_id: string | null
+          page_design_tokens: Json
+          template_version: string
+          last_migration_number: number
+          update_available: boolean
+          update_history: Json
         }
         Insert: {
           id?: number
@@ -87,7 +93,13 @@ export interface Database {
           legal_contact_email?: string | null
           cs_agent_config?: Json
           onboarding_checklist?: Json
+          resend_webhook_secret?: string | null
           stripe_connect_account_id?: string | null
+          page_design_tokens?: Json
+          template_version?: string
+          last_migration_number?: number
+          update_available?: boolean
+          update_history?: Json
         }
         Update: {
           id?: number
@@ -105,7 +117,13 @@ export interface Database {
           legal_contact_email?: string | null
           cs_agent_config?: Json
           onboarding_checklist?: Json
+          resend_webhook_secret?: string | null
           stripe_connect_account_id?: string | null
+          page_design_tokens?: Json
+          template_version?: string
+          last_migration_number?: number
+          update_available?: boolean
+          update_history?: Json
         }
         Relationships: []
       }
@@ -597,6 +615,7 @@ export interface Database {
           last_sent_at: string | null
           next_send_at: string | null
           completed_at: string | null
+          processing_started_at: string | null
           created_at: string
         }
         Insert: {
@@ -609,6 +628,7 @@ export interface Database {
           last_sent_at?: string | null
           next_send_at?: string | null
           completed_at?: string | null
+          processing_started_at?: string | null
           created_at?: string
         }
         Update: {
@@ -621,6 +641,7 @@ export interface Database {
           last_sent_at?: string | null
           next_send_at?: string | null
           completed_at?: string | null
+          processing_started_at?: string | null
           created_at?: string
         }
         Relationships: [
@@ -1658,6 +1679,40 @@ export interface Database {
           },
         ]
       }
+
+      page_templates: {
+        Row: {
+          id: string
+          name: string
+          category: string
+          description: string
+          html_content: string
+          design_notes: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          category: string
+          description?: string
+          html_content: string
+          design_notes?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          category?: string
+          description?: string
+          html_content?: string
+          design_notes?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1691,6 +1746,19 @@ export interface Database {
           metadata: Json
           similarity: number
         }[]
+      }
+      describe_schema: {
+        Args: {
+          p_table_name?: string | null
+        }
+        Returns: Json
+      }
+      execute_readonly_query: {
+        Args: {
+          p_query: string
+          p_max_rows?: number
+        }
+        Returns: Json
       }
     }
     Enums: {

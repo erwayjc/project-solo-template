@@ -1,7 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/auth/helpers'
 import type { Json } from '@/lib/supabase/types'
 import type { OnboardingChecklist, OnboardingProgress, BrandColors } from '@/types'
 
@@ -9,21 +9,6 @@ import type { OnboardingChecklist, OnboardingProgress, BrandColors } from '@/typ
 const SEED_BLOG_COUNT = 3
 const SEED_PRIMARY_COLOR = '#2563eb'
 const SEED_SITE_NAME = 'My Business'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
-  return user
-}
 
 /**
  * Get full onboarding progress — combines derived state with stored JSONB flags.

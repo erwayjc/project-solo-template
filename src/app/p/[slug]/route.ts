@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getStripe } from '@/lib/stripe/client'
+import { sanitizePageHtml } from '@/lib/utils/sanitize'
 
 // F2: Added form-action and base-uri to prevent form hijacking and base tag injection
 const CSP_POLICY = [
@@ -66,12 +67,12 @@ export async function GET(
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (!profile || profile.role !== 'admin') {
       return new Response('Not Found', { status: 404 })
     }
   } else {
     // F6: Atomic SQL increment — avoids TOCTOU race condition under concurrent traffic
-    admin.rpc('increment_page_view_count' as never, { page_id: page.id } as never).then(() => {})
+    Promise.resolve(admin.rpc('increment_page_view_count' as never, { page_id: page.id } as never)).catch((err: unknown) => console.error('[page-view] Failed to increment:', err))
   }
 
   // Check if page belongs to a funnel step
@@ -93,7 +94,7 @@ export async function GET(
         event_type: 'view',
         visitor_hash: visitorHash,
       })
-      .then(() => {})
+      .then(() => {}, (err: unknown) => console.error('[funnel-event] Failed to record view:', err))
 
     // Upsell step verification
     if (funnelStep.step_type === 'upsell') {
@@ -129,6 +130,11 @@ export async function GET(
         const session = await stripe.checkout.sessions.retrieve(sessionId, {
           expand: ['line_items.data.price'],
         })
+
+        // Verify session payment status
+        if (session.payment_status !== 'paid' && session.status !== 'complete') {
+          // Session exists but not paid — could be an abandoned checkout
+        }
 
         // Verify the session's product matches the preceding sales step's product
         const { data: salesStepForVerify } = await admin
@@ -206,7 +212,7 @@ export async function GET(
               visitor_hash: visitorHash,
               stripe_session_id: sessionId,
             })
-            .then(() => {})
+            .then(() => {}, (err: unknown) => console.error('[funnel-event] Failed to record conversion:', err))
         }
       } catch {
         // Invalid session_id — redirect to previous step
@@ -232,6 +238,31 @@ export async function GET(
       }
     }
   }
+
+  // Fetch brand colors + design tokens for CSS injection
+  const { data: siteConfig } = await admin
+    .from('site_config')
+    .select('brand_colors, page_design_tokens')
+    .eq('id', 1)
+    .single()
+
+  const brandColors = (siteConfig?.brand_colors as Record<string, string>) ?? {}
+  const designTokens = (siteConfig?.page_design_tokens as Record<string, unknown>) ?? {}
+  const fonts = (designTokens.fonts as Record<string, string>) ?? {}
+  const customCss = (designTokens.custom_css as string) ?? ''
+
+  const brandCssBlock = `<style>
+    :root {
+      --brand-primary: ${brandColors.primary ?? '#2563eb'};
+      --brand-secondary: ${brandColors.secondary ?? '#1e40af'};
+      --brand-accent: ${brandColors.accent ?? '#f59e0b'};
+      --brand-background: ${brandColors.background ?? '#ffffff'};
+      --brand-text: ${brandColors.text ?? '#111827'};
+      --brand-font-heading: ${fonts.heading ?? 'system-ui, -apple-system, sans-serif'};
+      --brand-font-body: ${fonts.body ?? 'system-ui, -apple-system, sans-serif'};
+    }
+    ${customCss}
+  </style>`
 
   // Build SEO tags from seo JSONB
   const seo = (page.seo as Record<string, string>) ?? {}
@@ -259,9 +290,10 @@ export async function GET(
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="${escapeAttr(CSP_POLICY)}">
     ${seoTags}
+    ${brandCssBlock}
   </head>
   <body>
-${page.html_content || ''}
+${sanitizePageHtml((page.html_content as string) || '')}
   </body>
 </html>`
 

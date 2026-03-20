@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth, requireAdmin } from '@/lib/auth/helpers'
 import type { Testimonial, TestimonialUpdate, TestimonialRequest } from '@/types/database'
 
 export async function getTestimonials(filters?: {
@@ -54,25 +55,7 @@ export async function createTestimonial(testimonialData: {
   company?: string
   image_url?: string
 }): Promise<Testimonial> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('testimonials')
@@ -94,25 +77,7 @@ export async function updateTestimonial(
   id: string,
   testimonialData: Partial<TestimonialUpdate>
 ): Promise<Testimonial> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('testimonials')
@@ -129,25 +94,7 @@ export async function updateTestimonial(
 }
 
 export async function deleteTestimonial(id: string): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase.from('testimonials').delete().eq('id', id)
 
@@ -157,25 +104,7 @@ export async function deleteTestimonial(id: string): Promise<void> {
 }
 
 export async function reorderTestimonials(orderedIds: string[]): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Batch all reorder updates in parallel for consistency
   const results = await Promise.all(
@@ -222,15 +151,7 @@ export async function submitTestimonial(data: {
   quote: string
   name?: string
 }): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -267,15 +188,7 @@ export async function submitTestimonial(data: {
 }
 
 export async function dismissTestimonialRequest(): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   const { error } = await supabase
     .from('testimonial_requests')

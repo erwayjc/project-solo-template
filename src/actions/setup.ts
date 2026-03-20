@@ -454,9 +454,9 @@ export async function createAdminAccount(
     throw new Error('Account creation failed unexpectedly')
   }
 
-  // F14: Wait briefly for the profile trigger to create the row, then retry
+  // F14: Wait for the profile trigger to create the row, then retry with exponential backoff
   let profileUpdated = false
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const { error: profileError, count } = await admin
       .from('profiles')
       .update({ role: 'admin', full_name: trimmedName, email: trimmedEmail })
@@ -467,8 +467,13 @@ export async function createAdminAccount(
       break
     }
 
-    // Wait 500ms before retrying (trigger may not have fired yet)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Exponential backoff: 500ms, 1000ms, 2000ms, 4000ms
+    const delay = 500 * Math.pow(2, attempt)
+    console.warn(
+      `[setup] Profile update attempt ${attempt + 1}/5 failed — retrying in ${delay}ms`,
+      profileError?.message ?? 'count was 0'
+    )
+    await new Promise((resolve) => setTimeout(resolve, delay))
   }
 
   if (!profileUpdated) {
@@ -476,20 +481,21 @@ export async function createAdminAccount(
   }
 
   // F6: Conditional update — only set admin_user_id if it's still null (race protection)
-  const { data: configUpdate } = await admin
+  // The `.is('admin_user_id', null)` filter ensures only one request can win.
+  const { data: configUpdate, count: configUpdateCount } = await admin
     .from('site_config')
     .update({ admin_user_id: authData.user.id })
     .eq('id', 1)
     .is('admin_user_id', null)
     .select('id')
 
-  if (!configUpdate || configUpdate.length === 0) {
+  if (!configUpdate || configUpdate.length === 0 || configUpdateCount === 0) {
     // Another request won the race — revert this user to non-admin
     await admin
       .from('profiles')
       .update({ role: 'customer' })
       .eq('id', authData.user.id)
-    throw new Error('An admin account was created by another request. Please refresh.')
+    throw new Error('Setup was completed by another request.')
   }
 
   return { success: true, userId: authData.user.id }

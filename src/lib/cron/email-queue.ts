@@ -7,11 +7,14 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
   let processed = 0
   let errors = 0
 
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
   const { data: enrollments, error: fetchError } = await admin
     .from('sequence_enrollments')
     .select('*')
     .eq('status', 'active')
     .lte('next_send_at', new Date().toISOString())
+    .or(`processing_started_at.is.null,processing_started_at.lt.${fiveMinutesAgo}`)
     .limit(50)
 
   if (fetchError) {
@@ -21,6 +24,13 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
   if (!enrollments || enrollments.length === 0) {
     return { processed: 0, errors: 0 }
   }
+
+  // Acquire processing lock on fetched enrollments
+  const enrollmentIds = enrollments.map((e) => e.id)
+  await admin
+    .from('sequence_enrollments')
+    .update({ processing_started_at: new Date().toISOString() })
+    .in('id', enrollmentIds)
 
   const { data: siteConfig } = await admin
     .from('site_config')
@@ -51,6 +61,7 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
+            processing_started_at: null,
           })
           .eq('id', enrollment.id)
         processed++
@@ -106,6 +117,7 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
             current_step: enrollment.current_step + 1,
             next_send_at: nextSendAt,
             last_sent_at: new Date().toISOString(),
+            processing_started_at: null,
           })
           .eq('id', enrollment.id)
       } else {
@@ -115,6 +127,7 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
             status: 'completed',
             completed_at: new Date().toISOString(),
             last_sent_at: new Date().toISOString(),
+            processing_started_at: null,
           })
           .eq('id', enrollment.id)
       }
@@ -122,6 +135,11 @@ export async function processEmailQueue(): Promise<{ processed: number; errors: 
       processed++
     } catch (err) {
       console.error(`Failed to process enrollment ${enrollment.id}:`, err)
+      // Clear processing lock so it can be retried
+      await admin
+        .from('sequence_enrollments')
+        .update({ processing_started_at: null })
+        .eq('id', enrollment.id)
       errors++
     }
   }

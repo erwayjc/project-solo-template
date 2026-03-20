@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/helpers'
 
 // ── Memory Management (Admin Only) ──
 
@@ -8,25 +8,7 @@ export async function getAgentMemories(
   agentId: string,
   filters?: { scope?: string; category?: string; limit?: number }
 ) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const limit = filters?.limit ?? 50
 
@@ -51,25 +33,7 @@ export async function getAgentMemories(
 }
 
 export async function deleteAgentMemory(memoryId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase
     .from('agent_memories')
@@ -82,25 +46,7 @@ export async function deleteAgentMemory(memoryId: string) {
 }
 
 export async function getAgentHandoffs(agentId: string, status?: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   let query = supabase
     .from('agent_handoffs')
@@ -120,25 +66,7 @@ export async function getAgentHandoffs(agentId: string, status?: string) {
 }
 
 export async function getMemoryStats() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Run all count queries in parallel instead of sequentially
   const scopes = ['customer', 'business', 'agent', 'conversation'] as const

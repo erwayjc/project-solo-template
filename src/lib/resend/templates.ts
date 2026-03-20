@@ -118,9 +118,8 @@ export function buildSequenceEmail(
   body: string,
   name?: string
 ): EmailTemplate {
-  const personalizedBody = name
-    ? body.replace(/\{\{name\}\}/g, name)
-    : body.replace(/\{\{name\}\}/g, 'there')
+  const safeName = name ? escapeHtml(name) : 'there'
+  const personalizedBody = body.replace(/\{\{name\}\}/g, safeName)
 
   const html = wrapInLayout(`
     <div style="font-size: 16px; line-height: 1.6; color: #374151;">
@@ -129,7 +128,7 @@ export function buildSequenceEmail(
   `)
 
   return {
-    subject: name ? subject.replace(/\{\{name\}\}/g, name) : subject,
+    subject: name ? subject.replace(/\{\{name\}\}/g, escapeHtml(name)) : subject,
     html,
   }
 }

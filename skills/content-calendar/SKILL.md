@@ -1,8 +1,8 @@
 ---
 name: Content Calendar
 description: Plan and organize content publishing schedules across blog, social media, and email channels. Covers content pillars, frequency cadences, and cross-platform coordination. Use when the user asks about content planning, publishing schedules, or content strategy.
-agents: [dev-agent, content-director]
-tags: [content, social, planning, calendar]
+agents: ["*"]
+tags: [marketing]
 invocation: both
 ---
 

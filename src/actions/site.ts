@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/helpers'
 import type { SiteConfig, Page } from '@/types/database'
 import type { Json } from '@/lib/supabase/types'
 
@@ -23,26 +24,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
 export async function updateSiteConfig(
   fields: Partial<Omit<SiteConfig, 'id'>>
 ) {
-  const supabase = await createClient()
-
-  // Verify the caller is authenticated and admin
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('site_config')
@@ -82,26 +64,7 @@ export async function updatePageContent(
   slug: string,
   sections: Record<string, unknown>[]
 ) {
-  const supabase = await createClient()
-
-  // Verify admin
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Upsert the page — create if it doesn't exist, update if it does
   const { data, error } = await supabase

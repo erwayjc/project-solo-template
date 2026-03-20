@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { TestimonialRequestBanner } from "@/components/portal/testimonial-request-banner";
 
@@ -9,10 +11,14 @@ export default async function PortalDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name")
-    .eq("id", user!.id)
+    .eq("id", user.id)
     .single();
 
   const { data: announcements } = await supabase
@@ -52,7 +58,7 @@ export default async function PortalDashboard() {
       )}
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <a
+        <Link
           href="/portal/lessons"
           className="rounded-lg border bg-white p-6 shadow-sm hover:shadow-md"
         >
@@ -62,8 +68,8 @@ export default async function PortalDashboard() {
           <p className="mt-1 text-sm text-gray-600">
             Pick up where you left off.
           </p>
-        </a>
-        <a
+        </Link>
+        <Link
           href="/portal/support"
           className="rounded-lg border bg-white p-6 shadow-sm hover:shadow-md"
         >
@@ -71,7 +77,7 @@ export default async function PortalDashboard() {
           <p className="mt-1 text-sm text-gray-600">
             Chat with our AI support assistant.
           </p>
-        </a>
+        </Link>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resend } from "@/lib/resend/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sanitizeEmailHtml } from "@/lib/utils/sanitize";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
         from: `${fromName} <${fromEmail}>`,
         to: recipient.email,
         subject: broadcast.subject,
-        html: broadcast.body,
+        html: sanitizeEmailHtml(broadcast.body),
       });
 
       if (!error) {

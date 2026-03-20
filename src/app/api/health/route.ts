@@ -166,7 +166,8 @@ export async function GET(request: NextRequest) {
 
   if (connections.supabase?.status === "connected") {
     // Call the introspection RPC function (not in generated types yet)
-    const { data: healthData } = await (admin.rpc as Function)(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: healthData } = await (admin.rpc as any)(
       "check_system_health"
     )
       .single()

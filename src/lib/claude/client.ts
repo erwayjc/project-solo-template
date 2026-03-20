@@ -14,6 +14,6 @@ export function getAnthropic(): Anthropic {
 /** @deprecated Use getAnthropic() instead */
 export const anthropic = new Proxy({} as Anthropic, {
   get(_, prop) {
-    return (getAnthropic() as any)[prop]
+    return (getAnthropic() as unknown as Record<string, unknown>)[prop as string]
   },
 })

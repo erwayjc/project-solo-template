@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MessageBubble } from "./message-bubble";
 import { ToolCallCard } from "./tool-call-card";
 
@@ -23,14 +23,12 @@ export function MessageList({
   messages: Message[];
   onToolSelect?: (tool: ToolCallData) => void;
 }) {
-  const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT);
+  const [extraCount, setExtraCount] = useState(0);
 
-  // Reset display count when conversation changes
-  useEffect(() => {
-    if (messages.length <= INITIAL_DISPLAY_COUNT) {
-      setDisplayCount(INITIAL_DISPLAY_COUNT);
-    }
-  }, [messages.length]);
+  // Effective display count: reset to initial when conversation is small
+  const displayCount = messages.length <= INITIAL_DISPLAY_COUNT
+    ? INITIAL_DISPLAY_COUNT
+    : INITIAL_DISPLAY_COUNT + extraCount;
 
   if (messages.length === 0) {
     return (
@@ -48,7 +46,7 @@ export function MessageList({
     <div className="space-y-4">
       {hasMore && (
         <button
-          onClick={() => setDisplayCount((prev) => prev + LOAD_MORE_COUNT)}
+          onClick={() => setExtraCount((prev) => prev + LOAD_MORE_COUNT)}
           className="mx-auto block rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
         >
           Load earlier messages ({messages.length - displayCount} hidden)

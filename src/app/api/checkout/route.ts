@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { priceId, customerEmail } = await request.json();
+  const { priceId } = await request.json();
 
   // Get the product/price from DB if priceId is "default"
   let stripePriceId = priceId;
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
     line_items: [{ price: stripePriceId, quantity: 1 }],
     success_url: `${siteUrl}/portal?checkout=success`,
     cancel_url: `${siteUrl}/checkout?canceled=true`,
-    customer_email: customerEmail || user.email || undefined,
+    // Always use the authenticated user's email — never trust client-provided email
+    customer_email: user.email || undefined,
     metadata: {
       user_id: user.id,
     },

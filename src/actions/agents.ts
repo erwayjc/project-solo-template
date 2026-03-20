@@ -1,12 +1,14 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth, requireAdmin } from '@/lib/auth/helpers'
 import { getAnthropic } from '@/lib/claude/client'
 import type { Agent, AgentConversation } from '@/types/database'
 
 // ── Agent CRUD ──
 
 export async function getAgents(): Promise<Agent[]> {
+  // Conditional admin check: admins see all, non-admins see limited fields
   const supabase = await createClient()
 
   const {
@@ -51,6 +53,7 @@ export async function getAgents(): Promise<Agent[]> {
 }
 
 export async function getAgent(id: string): Promise<Agent> {
+  // Conditional admin check: admins see all fields, non-admins see limited
   const supabase = await createClient()
 
   const {
@@ -108,25 +111,7 @@ export async function createAgent(agentData: {
   model?: string
   is_active?: boolean
 }): Promise<Agent> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('agents')
@@ -145,25 +130,7 @@ export async function updateAgent(
   id: string,
   agentData: Partial<Omit<Agent, 'id' | 'created_at'>>
 ): Promise<Agent> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('agents')
@@ -180,25 +147,7 @@ export async function updateAgent(
 }
 
 export async function deleteAgent(id: string): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Prevent deleting system agents
   const { data: agent } = await supabase
@@ -226,15 +175,7 @@ export async function deleteAgent(id: string): Promise<void> {
 export async function getAvailableModels(): Promise<
   { id: string; display_name: string }[]
 > {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  await requireAuth()
 
   const anthropic = getAnthropic()
   const response = await anthropic.models.list({ limit: 100 })
@@ -249,25 +190,7 @@ export async function getAvailableModels(): Promise<
 export async function getConversations(
   agentId: string
 ): Promise<AgentConversation[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('agent_conversations')
@@ -283,25 +206,7 @@ export async function getConversations(
 }
 
 export async function getConversation(id: string): Promise<AgentConversation> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('agent_conversations')
@@ -326,15 +231,7 @@ export async function getConversation(id: string): Promise<AgentConversation> {
 export async function getUserConversations(
   agentId: string
 ): Promise<Pick<AgentConversation, 'id' | 'agent_id' | 'title' | 'created_at' | 'updated_at'>[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { user } = await requireAuth()
 
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const admin = createAdminClient()
@@ -360,15 +257,7 @@ export async function getUserConversations(
 export async function getUserConversation(
   id: string
 ): Promise<AgentConversation> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { user } = await requireAuth()
 
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const admin = createAdminClient()
@@ -407,25 +296,7 @@ export interface InstalledSkill {
  * Get all installed skills from the filesystem. Admin-only.
  */
 export async function getInstalledSkills(): Promise<InstalledSkill[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  await requireAdmin()
 
   const { loadSkills } = await import('@/agents/skills/loader')
   const skills = loadSkills()
@@ -456,20 +327,7 @@ export interface SkillDetail {
  * Get a single skill by slug with full body content. Admin-only.
  */
 export async function getSkill(slug: string): Promise<SkillDetail> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
+  await requireAdmin()
 
   const { loadSkills, clearSkillsCache } = await import(
     '@/agents/skills/loader'
@@ -504,20 +362,7 @@ export async function saveSkill(data: {
   invocation: 'user' | 'model' | 'both'
   body: string
 }): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
+  await requireAdmin()
 
   // Validate slug format
   if (!/^[a-z0-9-]+$/.test(data.slug)) {
@@ -562,20 +407,7 @@ export async function saveSkill(data: {
  * Delete a skill from disk. Admin-only.
  */
 export async function deleteSkill(slug: string): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
+  await requireAdmin()
 
   const fs = await import('fs')
   const path = await import('path')

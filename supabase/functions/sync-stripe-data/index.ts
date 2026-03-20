@@ -29,7 +29,7 @@ interface StripeListResponse {
   has_more: boolean;
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async () => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -57,12 +57,6 @@ Deno.serve(async (_req: Request) => {
     //    any charges we might have missed in a previous run.
     // -----------------------------------------------------------------------
     const twentyFourHoursAgo = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
-
-    const params = new URLSearchParams({
-      created: JSON.stringify({ gte: twentyFourHoursAgo }),
-      limit: "100",
-      expand: ["data.customer"].toString(),
-    });
 
     // Use the simpler query param format Stripe expects
     const chargesUrl = `${STRIPE_API_URL}/charges?limit=100&created[gte]=${twentyFourHoursAgo}`;

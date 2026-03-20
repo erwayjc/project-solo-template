@@ -20,7 +20,7 @@ interface ContentQueueItem {
   source_content_id: string | null;
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async () => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

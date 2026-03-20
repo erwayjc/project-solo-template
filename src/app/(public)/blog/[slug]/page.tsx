@@ -28,6 +28,7 @@ export default async function BlogPostPage({
         </time>
       )}
       {post.featured_image && (
+        /* eslint-disable-next-line @next/next/no-img-element -- dynamic user-provided URL */
         <img
           src={post.featured_image}
           alt={post.title}

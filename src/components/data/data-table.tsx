@@ -15,6 +15,10 @@ interface DataTableProps {
   columns: Column[];
   data: Record<string, unknown>[];
   onRowClick?: (row: Record<string, unknown>) => void;
+  rowActions?: (row: Record<string, unknown>) => React.ReactNode;
+  emptyIcon?: React.ReactNode;
+  emptyTitle?: string;
+  emptyDescription?: string;
   className?: string;
 }
 
@@ -22,6 +26,10 @@ export function DataTable({
   columns,
   data,
   onRowClick,
+  rowActions,
+  emptyIcon,
+  emptyTitle,
+  emptyDescription,
   className,
 }: DataTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -51,59 +59,84 @@ export function DataTable({
       })
     : data;
 
+  const allColumns = rowActions
+    ? [...columns, { key: "__actions", label: "", sortable: false }]
+    : columns;
+
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-lg border bg-white shadow-sm",
+        "overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm",
         className,
       )}
     >
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-gray-100">
+        <thead>
           <tr>
-            {columns.map((col) => (
+            {allColumns.map((col) => (
               <th
                 key={col.key}
                 className={cn(
-                  "px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500",
-                  col.sortable && "cursor-pointer select-none hover:text-gray-700",
+                  "sticky top-0 z-10 bg-gray-50/95 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 backdrop-blur-sm",
                   col.className,
                 )}
-                onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                aria-sort={
+                  col.sortable && sortKey === col.key
+                    ? sortDirection === "asc"
+                      ? "ascending"
+                      : "descending"
+                    : col.sortable
+                      ? "none"
+                      : undefined
+                }
               >
-                <span className="inline-flex items-center gap-1">
-                  {col.label}
-                  {col.sortable && sortKey === col.key && (
-                    <svg
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        sortDirection === "desc" && "rotate-180",
-                      )}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 15l7-7 7 7"
-                      />
-                    </svg>
-                  )}
-                </span>
+                {col.sortable ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      "inline-flex items-center gap-1 select-none transition-colors hover:text-gray-700",
+                      sortKey === col.key && "text-gray-700",
+                    )}
+                    onClick={() => handleSort(col.key)}
+                    aria-label={`Sort by ${col.label}`}
+                  >
+                    {col.label}
+                    {sortKey === col.key && (
+                      <svg
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform",
+                          sortDirection === "desc" && "rotate-180",
+                        )}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 15l7-7 7 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                  </span>
+                )}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
+        <tbody className="divide-y divide-gray-100 bg-white">
           {sortedData.map((row, rowIndex) => (
             <tr
               key={rowIndex}
               className={cn(
-                "transition-colors",
-                onRowClick &&
-                  "cursor-pointer hover:bg-gray-50",
+                "group transition-colors",
+                onRowClick && "cursor-pointer hover:bg-gray-50/50",
               )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
@@ -120,15 +153,32 @@ export function DataTable({
                     : (row[col.key] as React.ReactNode) ?? "\u2014"}
                 </td>
               ))}
+              {rowActions && (
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    {rowActions(row)}
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
           {sortedData.length === 0 && (
             <tr>
               <td
-                colSpan={columns.length}
-                className="px-4 py-8 text-center text-sm text-gray-500"
+                colSpan={allColumns.length}
+                className="px-4 py-12 text-center"
               >
-                No data available.
+                <div className="flex flex-col items-center gap-2">
+                  {emptyIcon && (
+                    <div className="text-gray-300">{emptyIcon}</div>
+                  )}
+                  <p className="text-sm font-medium text-gray-500">
+                    {emptyTitle || "No data available"}
+                  </p>
+                  {emptyDescription && (
+                    <p className="text-xs text-gray-400">{emptyDescription}</p>
+                  )}
+                </div>
               </td>
             </tr>
           )}

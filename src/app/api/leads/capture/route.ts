@@ -4,6 +4,37 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { leadCaptureSchema } from '@/lib/utils/validation'
 
 export async function POST(request: NextRequest) {
+  // CSRF protection: verify the request originates from our own domain
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  const host = request.headers.get('host')
+
+  // Build a set of allowed origins from NEXT_PUBLIC_SITE_URL and the request host
+  const allowedOrigins: string[] = []
+  if (siteUrl) {
+    try {
+      const parsed = new URL(siteUrl)
+      allowedOrigins.push(parsed.origin)
+    } catch {
+      // Invalid SITE_URL — skip
+    }
+  }
+  if (host) {
+    // Accept both http and https for the host header
+    allowedOrigins.push(`https://${host}`, `http://${host}`)
+  }
+
+  const originMatch = origin && allowedOrigins.some((allowed) => origin === allowed)
+  const refererMatch = referer && allowedOrigins.some((allowed) => referer.startsWith(allowed))
+
+  if (!originMatch && !refererMatch) {
+    return NextResponse.json(
+      { error: 'Forbidden — invalid origin' },
+      { status: 403 }
+    )
+  }
+
   // F4: Wrap body parsing in try/catch to handle malformed requests gracefully
   let body: unknown
   const contentType = request.headers.get('content-type') ?? ''

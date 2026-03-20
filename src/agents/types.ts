@@ -135,7 +135,7 @@ export type AgentProgressEvent =
   | { type: 'delegation_start'; specialist: string; specialistName: string }
   | { type: 'delegation_end'; specialist: string; status: 'completed' | 'failed'; roundsUsed: number }
   | { type: 'text'; content: string }
-  | { type: 'done'; conversationId: string; toolCalls: ToolCall[]; tokensUsed: number; delegations?: DelegationRecord[] }
+  | { type: 'done'; conversationId: string; toolCalls: ToolCall[]; tokensUsed: number; delegations?: DelegationRecord[]; title?: string }
 
 /**
  * Record of a single delegation to a specialist agent.

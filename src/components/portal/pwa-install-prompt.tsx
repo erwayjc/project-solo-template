@@ -1,10 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { cn } from "@/lib/utils/cn";
 
 const DISMISSED_KEY = "pwa-install-prompt-dismissed";
+
+function getDismissedSnapshot(): boolean {
+  return localStorage.getItem(DISMISSED_KEY) === "true";
+}
+
+function getServerSnapshot(): boolean {
+  return true; // Default to dismissed on server
+}
+
+function subscribeToDismissed(): () => void {
+  // localStorage doesn't fire events in the same tab, so no subscription needed
+  return () => {};
+}
 
 interface PwaInstallPromptProps {
   className?: string;
@@ -12,13 +25,8 @@ interface PwaInstallPromptProps {
 
 export function PwaInstallPrompt({ className }: PwaInstallPromptProps) {
   const { isInstallable, isInstalled, promptInstall } = usePwaInstall();
-  const [isDismissed, setIsDismissed] = useState(true);
-
-  // Read dismissed state from localStorage on mount
-  useEffect(() => {
-    const dismissed = localStorage.getItem(DISMISSED_KEY);
-    setIsDismissed(dismissed === "true");
-  }, []);
+  const isDismissedFromStorage = useSyncExternalStore(subscribeToDismissed, getDismissedSnapshot, getServerSnapshot);
+  const [isDismissed, setIsDismissed] = useState(isDismissedFromStorage);
 
   function handleDismiss() {
     localStorage.setItem(DISMISSED_KEY, "true");

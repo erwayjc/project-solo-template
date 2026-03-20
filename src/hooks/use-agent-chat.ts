@@ -27,6 +27,8 @@ interface UseAgentChatReturn {
   activeTools: string[]
   /** Currently active delegation */
   activeDelegation: { specialist: string; specialistName: string } | null
+  /** Auto-generated conversation title (set after first exchange) */
+  conversationTitle: string | undefined
 }
 
 export function useAgentChat({
@@ -43,7 +45,15 @@ export function useAgentChat({
   const [thinkingStatus, setThinkingStatus] = useState('')
   const [activeTools, setActiveTools] = useState<string[]>([])
   const [activeDelegation, setActiveDelegation] = useState<{ specialist: string; specialistName: string } | null>(null)
+  const [conversationTitle, setConversationTitle] = useState<string | undefined>()
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Abort any in-flight request on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   // Auto-resume: load the most recent conversation on mount
   useEffect(() => {
@@ -179,6 +189,9 @@ export function useAgentChat({
                   if (event.conversationId) {
                     setConversationId(event.conversationId)
                   }
+                  if (event.title) {
+                    setConversationTitle(event.title)
+                  }
                   // Use full tool call data from done event
                   if (event.toolCalls?.length > 0) {
                     collectedToolCalls.length = 0
@@ -241,6 +254,7 @@ export function useAgentChat({
     setToolCalls([])
     setError(null)
     setConversationId(undefined)
+    setConversationTitle(undefined)
   }, [])
 
   return {
@@ -256,5 +270,6 @@ export function useAgentChat({
     thinkingStatus,
     activeTools,
     activeDelegation,
+    conversationTitle,
   }
 }

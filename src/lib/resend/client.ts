@@ -12,6 +12,6 @@ export function getResend(): Resend {
 /** @deprecated Use getResend() instead */
 export const resend = new Proxy({} as Resend, {
   get(_, prop) {
-    return (getResend() as any)[prop]
+    return (getResend() as unknown as Record<string, unknown>)[prop as string]
   },
 })

@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/helpers'
 import type {
   AgentSchedule,
   AgentTrigger,
@@ -20,31 +20,10 @@ const ALLOWED_TRIGGER_TABLES = [
 // Simple cron validation (5 space-separated fields)
 const CRON_REGEX = /^(\S+\s+){4}\S+$/
 
-// ── Helper: verify admin ──
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) throw new Error('Authentication required')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') throw new Error('Admin access required')
-
-  return supabase
-}
-
 // ── Schedules ──
 
 export async function getAgentSchedules(agentId?: string): Promise<AgentSchedule[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   let query = supabase
     .from('agent_schedules')
     .select('*')
@@ -64,7 +43,7 @@ export async function createAgentSchedule(data: {
   cron_expression: string
   is_active?: boolean
 }): Promise<AgentSchedule> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: schedule, error } = await supabase
     .from('agent_schedules')
     .insert({
@@ -88,7 +67,7 @@ export async function updateAgentSchedule(
     throw new Error('Invalid cron expression format')
   }
 
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
 
   // Recalculate next_run_at when re-enabling a schedule
   const updateData: Record<string, unknown> = { ...data, updated_at: new Date().toISOString() }
@@ -108,7 +87,7 @@ export async function updateAgentSchedule(
 }
 
 export async function deleteAgentSchedule(id: string): Promise<void> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { error } = await supabase.from('agent_schedules').delete().eq('id', id)
   if (error) throw new Error(`Failed to delete schedule: ${error.message}`)
 }
@@ -116,7 +95,7 @@ export async function deleteAgentSchedule(id: string): Promise<void> {
 // ── Triggers ──
 
 export async function getAgentTriggers(agentId?: string): Promise<AgentTrigger[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   let query = supabase
     .from('agent_triggers')
     .select('*')
@@ -143,7 +122,7 @@ export async function createAgentTrigger(data: {
     throw new Error(`Table "${data.table_name}" is not allowed for triggers`)
   }
 
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: trigger, error } = await supabase
     .from('agent_triggers')
     .insert({
@@ -168,7 +147,7 @@ export async function updateAgentTrigger(
     throw new Error(`Table "${data.table_name}" is not allowed for triggers`)
   }
 
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: trigger, error } = await supabase
     .from('agent_triggers')
     .update(data)
@@ -181,7 +160,7 @@ export async function updateAgentTrigger(
 }
 
 export async function deleteAgentTrigger(id: string): Promise<void> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { error } = await supabase.from('agent_triggers').delete().eq('id', id)
   if (error) throw new Error(`Failed to delete trigger: ${error.message}`)
 }
@@ -189,7 +168,7 @@ export async function deleteAgentTrigger(id: string): Promise<void> {
 // ── Runs ──
 
 export async function getAgentRuns(agentId?: string, limit = 50): Promise<AgentRun[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   let query = supabase
     .from('agent_runs')
     .select('*')
@@ -206,7 +185,7 @@ export async function getAgentRuns(agentId?: string, limit = 50): Promise<AgentR
 // ── Status ──
 
 export async function getAgentStatuses(): Promise<AgentStatus[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data, error } = await supabase.from('agent_status').select('*')
 
   if (error) throw new Error(`Failed to fetch statuses: ${error.message}`)
@@ -216,7 +195,7 @@ export async function getAgentStatuses(): Promise<AgentStatus[]> {
 // ── Goals ──
 
 export async function getGoals(status?: string): Promise<Goal[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   let query = supabase.from('goals').select('*').order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
@@ -231,7 +210,7 @@ export async function createGoal(data: {
   description?: string
   target_date?: string
 }): Promise<Goal> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: goal, error } = await supabase
     .from('goals')
     .insert({
@@ -248,7 +227,7 @@ export async function createGoal(data: {
 }
 
 export async function activateGoal(id: string): Promise<Goal> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: goal, error } = await supabase
     .from('goals')
     .update({ status: 'active', updated_at: new Date().toISOString() })
@@ -261,7 +240,7 @@ export async function activateGoal(id: string): Promise<Goal> {
 }
 
 export async function pauseGoal(id: string): Promise<Goal> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   const { data: goal, error } = await supabase
     .from('goals')
     .update({ status: 'paused', updated_at: new Date().toISOString() })
@@ -276,7 +255,7 @@ export async function pauseGoal(id: string): Promise<Goal> {
 // ── Goal Tasks ──
 
 export async function getGoalTasks(goalIds?: string[]): Promise<GoalTask[]> {
-  const supabase = await requireAdmin()
+  const { supabase } = await requireAdmin()
   let query = supabase
     .from('goal_tasks')
     .select('*')

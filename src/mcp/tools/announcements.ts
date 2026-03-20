@@ -85,7 +85,7 @@ export const tools: ToolDefinition[] = [
 
       const { data, error } = await supabase
         .from('announcements')
-        .update(updates as any)
+        .update(updates as unknown as Record<string, never>)
         .eq('id', id)
         .select()
         .single()

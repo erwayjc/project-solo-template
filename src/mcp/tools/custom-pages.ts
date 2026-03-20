@@ -31,6 +31,17 @@ export const tools: ToolDefinition[] = [
           description:
             'Full HTML content for the page body — include <style> blocks for CSS and inline <script> for JS. No external scripts allowed.',
         },
+        from_template: {
+          type: 'string',
+          description:
+            'UUID of a page template to use as the starting point. When provided, html_content is optional — the template HTML will be used if html_content is not supplied. Prefer fetching the template with get_page_template first, customizing it, then passing the customized HTML as html_content.',
+        },
+        reference_image_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Array of media library UUIDs for reference images/screenshots the user uploaded. The tool will return their URLs so you can analyze them for design inspiration.',
+        },
         seo: {
           type: 'object',
           description: 'SEO metadata for the page',
@@ -46,11 +57,13 @@ export const tools: ToolDefinition[] = [
           description: 'Whether to publish immediately (default: false — draft)',
         },
       },
-      required: ['slug', 'html_content'],
+      required: ['slug'],
     },
     async execute(params) {
       const slug = params.slug as string
-      const htmlContent = params.html_content as string
+      const fromTemplate = params.from_template as string | undefined
+      const referenceImageIds = params.reference_image_ids as string[] | undefined
+      let htmlContent = params.html_content as string | undefined
       const seo = params.seo as Record<string, string> | undefined
       const isPublished = (params.is_published as boolean) ?? false
 
@@ -60,12 +73,43 @@ export const tools: ToolDefinition[] = [
         return { success: false, error: slugResult.error.issues[0]?.message || 'Invalid slug format' }
       }
 
+      const supabase = createAdminClient()
+
+      // If from_template is provided and no html_content, use the template HTML
+      if (fromTemplate && !htmlContent) {
+        const { data: template } = await supabase
+          .from('page_templates')
+          .select('html_content')
+          .eq('id', fromTemplate)
+          .eq('is_active', true)
+          .single()
+
+        if (!template) {
+          return { success: false, error: 'Template not found. Use list_page_templates to see available templates.' }
+        }
+
+        htmlContent = template.html_content
+      }
+
+      if (!htmlContent) {
+        return { success: false, error: 'Either html_content or from_template is required.' }
+      }
+
+      // Resolve reference image URLs if provided
+      let referenceUrls: string[] | undefined
+      if (referenceImageIds && referenceImageIds.length > 0) {
+        const { data: media } = await supabase
+          .from('media')
+          .select('id, url, alt_text')
+          .in('id', referenceImageIds)
+
+        referenceUrls = (media ?? []).map((m) => m.url)
+      }
+
       // Validate content size
       if (Buffer.byteLength(htmlContent, 'utf-8') > MAX_HTML_SIZE) {
         return { success: false, error: `HTML content exceeds maximum size of 256KB` }
       }
-
-      const supabase = createAdminClient()
 
       // Check for duplicate slug
       const { data: existing } = await supabase
@@ -106,6 +150,8 @@ export const tools: ToolDefinition[] = [
           ...data,
           preview_url: `/p/${slug}?preview=true`,
           public_url: `/p/${slug}`,
+          ...(fromTemplate ? { from_template: fromTemplate } : {}),
+          ...(referenceUrls ? { reference_image_urls: referenceUrls } : {}),
         },
       }
     },
@@ -284,8 +330,8 @@ export const tools: ToolDefinition[] = [
     },
     async execute(params) {
       const status = (params.status as string) ?? 'all'
-      const limit = (params.limit as number) ?? 50
-      const offset = (params.offset as number) ?? 0
+      const limit = Math.min((params.limit as number) ?? 50, 200)
+      const offset = Math.max((params.offset as number) ?? 0, 0)
 
       const supabase = createAdminClient()
 
@@ -360,7 +406,8 @@ export const tools: ToolDefinition[] = [
       const { count: leadCount } = await supabase
         .from('leads')
         .select('id', { count: 'exact', head: true })
-        .or(`source.eq.${slug},metadata->>page_slug.eq.${slug}`)
+        .or(`source.eq."${slug.replace(/"/g, '')}",metadata->>page_slug.eq."${slug.replace(/"/g, '')}"`)
+
 
       const views = page.view_count as number ?? 0
       const leads = leadCount ?? 0

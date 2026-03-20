@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth, requireAdmin } from '@/lib/auth/helpers'
 import type { SupportTicket } from '@/types/database'
 import type { Json } from '@/lib/supabase/types'
 
@@ -8,15 +9,7 @@ export async function createTicket(
   subject: string,
   message: string
 ): Promise<SupportTicket> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   const initialMessages = [
     {
@@ -50,25 +43,7 @@ export async function getTickets(filters?: {
   limit?: number
   offset?: number
 }): Promise<{ tickets: SupportTicket[]; count: number }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   let query = supabase
     .from('support_tickets')
@@ -108,6 +83,7 @@ export async function respondToTicket(
   id: string,
   message: string
 ): Promise<SupportTicket> {
+  // Uses requireAuth + manual profile check because the role determines message role
   const supabase = await createClient()
 
   const {
@@ -164,25 +140,7 @@ export async function respondToTicket(
 }
 
 export async function resolveTicket(id: string): Promise<SupportTicket> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('support_tickets')
@@ -205,15 +163,7 @@ export async function resolveTicket(id: string): Promise<SupportTicket> {
  * Get tickets for the currently logged-in portal user.
  */
 export async function getMyTickets(): Promise<SupportTicket[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase, user } = await requireAuth()
 
   const { data, error } = await supabase
     .from('support_tickets')

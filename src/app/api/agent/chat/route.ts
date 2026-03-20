@@ -27,21 +27,55 @@ export async function POST(request: NextRequest) {
 
   const mcpClient = new McpClient();
 
-  // Resolve agent ID before starting the stream
+  // Resolve agent ID and fetch full agent record for permission checks
   const admin = createAdminClient();
   let resolvedAgentId = agentId;
+  let agentRecord: { id: string; is_system: boolean; is_active: boolean; tools: string[] } | null = null;
+
   if (agentSlug && !agentId) {
     const { data: agent } = await admin
       .from("agents")
-      .select("id")
+      .select("id, is_system, is_active, tools")
       .eq("slug", agentSlug)
       .eq("is_active", true)
       .single();
+    agentRecord = agent;
     resolvedAgentId = agent?.id;
+  } else if (resolvedAgentId) {
+    const { data: agent } = await admin
+      .from("agents")
+      .select("id, is_system, is_active, tools")
+      .eq("id", resolvedAgentId)
+      .eq("is_active", true)
+      .single();
+    agentRecord = agent;
   }
 
-  if (!resolvedAgentId) {
+  if (!resolvedAgentId || !agentRecord) {
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  }
+
+  // Permission check: system agents and agents with admin-level tools
+  // require admin role. Non-admin users can only access non-system agents
+  // that don't have admin-only tool access.
+  const adminOnlyToolPrefixes = ["manage_", "update_site", "delete_", "create_agent", "update_agent"];
+  const hasAdminTools = agentRecord.tools.some((tool: string) =>
+    adminOnlyToolPrefixes.some((prefix) => tool.startsWith(prefix))
+  );
+
+  if (agentRecord.is_system || hasAdminTools) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "admin") {
+      return NextResponse.json(
+        { error: "You do not have permission to use this agent" },
+        { status: 403 }
+      );
+    }
   }
 
   // Create SSE stream

@@ -28,10 +28,25 @@ export const tools: ToolDefinition[] = [
       const supabase = createAdminClient()
       const fields = params.fields as Record<string, unknown>
 
+      // Only allow updating known site_config columns to prevent agents from
+      // writing arbitrary data that the frontend doesn't support.
+      const ALLOWED_FIELDS = new Set([
+        'site_name', 'tagline', 'logo_url', 'brand_colors', 'social_links',
+        'seo_defaults', 'master_context', 'admin_user_id', 'setup_complete',
+        'analytics_id', 'legal_business_name', 'legal_contact_email',
+        'cs_agent_config', 'onboarding_checklist', 'stripe_connect_account_id',
+        'resend_webhook_secret',
+      ])
+
+      const disallowed = Object.keys(fields).filter(k => !ALLOWED_FIELDS.has(k))
+      if (disallowed.length > 0) {
+        return { success: false, error: `Unknown site_config fields: ${disallowed.join(', ')}. Only existing columns can be updated.` }
+      }
+
       // site_config is expected to have a single row (id = 1 or use .single())
       const { data, error } = await supabase
         .from('site_config')
-        .update(fields as any)
+        .update(fields as unknown as Record<string, never>)
         .eq('id', 1)
         .select()
         .single()

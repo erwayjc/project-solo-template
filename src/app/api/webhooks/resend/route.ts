@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Webhook } from "svix";
+import { decrypt } from "@/lib/utils/encryption";
 import { getResend } from "@/lib/resend/client";
 import { AgentEngine } from "@/agents/engine";
 import { McpClient } from "@/mcp/client";
@@ -21,6 +22,35 @@ type WebhookPayload =
   | { type: "email.received"; data: InboundEmailData }
   | { type: "email.delivered" | "email.opened" | "email.clicked" | "email.bounced"; data: DeliveryEventData };
 
+/**
+ * Resolve the Resend webhook signing secret.
+ * Priority: env var > encrypted value in site_config.
+ */
+async function resolveWebhookSecret(): Promise<string | null> {
+  // 1. Env var takes priority (backwards-compatible)
+  if (process.env.RESEND_WEBHOOK_SECRET) {
+    return process.env.RESEND_WEBHOOK_SECRET;
+  }
+
+  // 2. Fall back to encrypted secret stored in DB
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("site_config")
+      .select("resend_webhook_secret")
+      .eq("id", 1)
+      .single();
+
+    if (data?.resend_webhook_secret) {
+      return decrypt(data.resend_webhook_secret as string);
+    }
+  } catch (err) {
+    console.error("[Resend webhook] Failed to load webhook secret from DB:", err);
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
 
@@ -33,9 +63,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing webhook signature headers" }, { status: 400 });
   }
 
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  const webhookSecret = await resolveWebhookSecret();
   if (!webhookSecret) {
-    console.error("RESEND_WEBHOOK_SECRET not configured");
+    console.error("Resend webhook secret not configured (checked env var and site_config)");
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
@@ -68,7 +98,8 @@ export async function POST(request: NextRequest) {
       await admin
         .from("email_sends")
         .update({ status: "opened", opened_at: new Date().toISOString() })
-        .eq("resend_id", data.email_id);
+        .eq("resend_id", data.email_id)
+        .is("opened_at", null);
       break;
     }
 
@@ -89,7 +120,16 @@ export async function POST(request: NextRequest) {
     }
 
     case "email.received": {
-      await handleInboundEmail(admin, data as InboundEmailData);
+      try {
+        await handleInboundEmail(admin, data as InboundEmailData);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        if (errorMessage.includes("duplicate key")) {
+          console.log(`[Resend webhook] Duplicate inbound email skipped: ${(data as InboundEmailData).email_id}`);
+        } else {
+          throw err;
+        }
+      }
       break;
     }
   }

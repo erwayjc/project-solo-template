@@ -128,7 +128,7 @@ export class AgentEngine {
 
       if (conv) {
         // Verify the conversation belongs to this user
-        if (conv.user_id && conv.user_id !== userId) {
+        if (!conv.user_id || conv.user_id !== userId) {
           throw new Error('Access denied: conversation does not belong to you')
         }
         history = (conv.messages as unknown as AgentMessage[]) ?? []
@@ -338,12 +338,23 @@ export class AgentEngine {
     // -----------------------------------------------------------------
     // 4. Gather available tools for this agent
     // -----------------------------------------------------------------
+    // System agents (e.g. Dev Agent) get ALL internal tools automatically —
+    // no need to manually whitelist every new tool added to the platform.
     const availableTools = this.mcpClient.getAvailableTools(
       agent.mcpServers.length > 0 ? agent.mcpServers : undefined,
-      agent.tools.length > 0 ? agent.tools : undefined
+      agent.isSystem ? undefined : (agent.tools.length > 0 ? agent.tools : undefined)
     )
 
-    const claudeTools = availableTools.map(toolToClaudeSchema)
+    const claudeTools: Anthropic.Messages.Tool[] = availableTools.map(toolToClaudeSchema) as Anthropic.Messages.Tool[]
+
+    // Add Claude's native web search as a server-side tool for system agents
+    if (agent.isSystem) {
+      claudeTools.push({
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: 5,
+      } as unknown as Anthropic.Messages.Tool)
+    }
 
     // -----------------------------------------------------------------
     // 5. Build the initial Claude messages array
@@ -484,6 +495,35 @@ export class AgentEngine {
       })
       .eq('id', convId)
 
+    // -----------------------------------------------------------------
+    // 8. Auto-generate conversation title on first exchange
+    // -----------------------------------------------------------------
+    let generatedTitle: string | undefined
+    if (history.length === 2) {
+      try {
+        const titleResponse = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 30,
+          messages: [
+            {
+              role: 'user',
+              content: `Generate a short title (max 6 words) for a conversation that starts with this message. Return ONLY the title, no quotes or punctuation at the end.\n\nUser message: ${userMessage}`,
+            },
+          ],
+        })
+        const titleBlock = titleResponse.content[0]
+        if (titleBlock.type === 'text') {
+          generatedTitle = titleBlock.text.trim()
+          await supabase
+            .from('agent_conversations')
+            .update({ title: generatedTitle })
+            .eq('id', convId)
+        }
+      } catch (err) {
+        console.warn('Title generation failed:', err)
+      }
+    }
+
     emit({ type: 'text', content: finalResponse })
     emit({
       type: 'done',
@@ -491,6 +531,7 @@ export class AgentEngine {
       toolCalls: allToolCalls,
       tokensUsed: totalTokensUsed,
       delegations: delegationStateRef?.records,
+      title: generatedTitle,
     })
 
     return {

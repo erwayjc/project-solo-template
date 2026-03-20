@@ -55,10 +55,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(settingsUrl)
   }
 
-  // Clear the state cookie
-  cookieStore.delete('stripe_oauth_state')
-
   // Exchange authorization code for access token
+  // Note: cookie is deleted AFTER successful token exchange so retry is possible on failure
   try {
     const tokenResponse = await fetch('https://connect.stripe.com/oauth/token', {
       method: 'POST',
@@ -98,6 +96,9 @@ export async function GET(request: NextRequest) {
       settingsUrl.searchParams.set('message', 'Failed to save Stripe connection')
       return NextResponse.redirect(settingsUrl)
     }
+
+    // Clear the state cookie only after successful token exchange and DB save
+    cookieStore.delete('stripe_oauth_state')
 
     settingsUrl.searchParams.set('stripe', 'connected')
     return NextResponse.redirect(settingsUrl)

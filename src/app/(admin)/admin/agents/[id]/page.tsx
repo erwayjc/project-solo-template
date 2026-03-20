@@ -49,15 +49,26 @@ export default async function AgentDetailPage({
       .limit(50),
   ]);
 
-  if (!agentRes.data) notFound();
+  if (agentRes.error || !agentRes.data) notFound();
+
+  const hasSecondaryErrors =
+    schedulesRes.error || triggersRes.error || runsRes.error;
 
   return (
-    <AgentDetailTabs
-      agent={agentRes.data}
-      schedules={(schedulesRes.data ?? []) as AgentSchedule[]}
-      triggers={(triggersRes.data ?? []) as AgentTrigger[]}
-      runs={(runsRes.data ?? []) as AgentRun[]}
-      initialTab={tab === "config" || tab === "runs" ? tab : "chat"}
-    />
+    <>
+      {hasSecondaryErrors && (
+        <div className="mx-4 mt-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Some data failed to load and may be incomplete. Try refreshing the
+          page.
+        </div>
+      )}
+      <AgentDetailTabs
+        agent={agentRes.data}
+        schedules={(schedulesRes.data ?? []) as AgentSchedule[]}
+        triggers={(triggersRes.data ?? []) as AgentTrigger[]}
+        runs={(runsRes.data ?? []) as AgentRun[]}
+        initialTab={tab === "config" || tab === "runs" ? tab : "chat"}
+      />
+    </>
   );
 }

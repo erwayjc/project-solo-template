@@ -1,8 +1,8 @@
 ---
 name: Email Sequence Design
 description: Design and optimize email automation sequences including welcome series, nurture campaigns, re-engagement flows, and post-purchase follow-ups. Use when the user asks about email sequences, drip campaigns, or automated email flows.
-agents: [dev-agent, email-copywriter]
-tags: [email, automation, marketing, sequences]
+agents: ["*"]
+tags: [marketing]
 invocation: both
 ---
 

@@ -5,6 +5,34 @@
 import sanitizeHtml from 'sanitize-html'
 
 /**
+ * Sanitize HTML for email content (broadcasts, sequences).
+ *
+ * Policy: allow standard formatting tags safe for email clients.
+ * Strips scripts, iframes, objects, embeds, and event handlers.
+ */
+export function sanitizeEmailHtml(rawHtml: string): string {
+  return sanitizeHtml(rawHtml, {
+    allowedTags: [
+      'p', 'br', 'a', 'strong', 'em', 'b', 'i', 'u',
+      'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'img',
+      'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot',
+      'div', 'span', 'blockquote', 'pre', 'code', 'hr',
+    ],
+    allowedAttributes: {
+      '*': ['style', 'class', 'id'],
+      a: ['href', 'target', 'rel'],
+      img: ['src', 'alt', 'width', 'height'],
+      td: ['colspan', 'rowspan', 'align', 'valign'],
+      th: ['colspan', 'rowspan', 'align', 'valign', 'scope'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    disallowedTagsMode: 'discard',
+  })
+}
+
+/**
  * Sanitize user/agent-provided HTML for custom pages.
  *
  * Policy:

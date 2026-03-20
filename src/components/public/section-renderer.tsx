@@ -1,8 +1,14 @@
+import { sanitizePageHtml } from "@/lib/utils/sanitize";
 import { HeroSection } from "./hero-section";
 import { BenefitsSection } from "./benefits-section";
 import { TestimonialsSection } from "./testimonials-section";
 import { PricingSection } from "./pricing-section";
 import { CtaSection } from "./cta-section";
+import { FeaturesSection } from "./features-section";
+import { FaqSection } from "./faq-section";
+import { StatsSection } from "./stats-section";
+import { LogoCloudSection } from "./logo-cloud-section";
+import { FeatureHighlightSection } from "./feature-highlight-section";
 
 const sectionComponents: Record<
   string,
@@ -13,6 +19,11 @@ const sectionComponents: Record<
   testimonials: TestimonialsSection,
   pricing: PricingSection,
   cta: CtaSection,
+  features: FeaturesSection,
+  faq: FaqSection,
+  stats: StatsSection,
+  logo_cloud: LogoCloudSection,
+  feature_highlight: FeatureHighlightSection,
 };
 
 export function SectionRenderer({
@@ -33,7 +44,7 @@ export function SectionRenderer({
               {section.headline as string}
             </h2>
           )}
-          <div className="prose max-w-none">{section.body as string}</div>
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: sanitizePageHtml(section.body as string) }} />
         </div>
       );
     }

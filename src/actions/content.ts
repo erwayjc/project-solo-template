@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth, requireAdmin } from '@/lib/auth/helpers'
 import type { BlogPost, ContentQueue } from '@/types/database'
 import type { Json } from '@/lib/supabase/types'
 
@@ -85,25 +86,7 @@ export async function createBlogPost(postData: {
   seo?: Record<string, unknown>
   status?: string
 }): Promise<BlogPost> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const insertData = {
     ...postData,
@@ -129,35 +112,21 @@ export async function updateBlogPost(
   id: string,
   postData: Partial<Omit<BlogPost, 'id'>>
 ): Promise<BlogPost> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // If publishing for the first time, set published_at
   const updateData = { ...postData } as Record<string, unknown>
   if (postData.status === 'published') {
     // Only set published_at if not already set
-    const { data: existing } = await supabase
+    const { data: existing, error: fetchError } = await supabase
       .from('blog_posts')
       .select('published_at')
       .eq('id', id)
       .single()
+
+    if (fetchError) {
+      throw new Error(`Blog post not found: ${fetchError.message}`)
+    }
 
     if (!existing?.published_at) {
       updateData.published_at = new Date().toISOString()
@@ -179,15 +148,7 @@ export async function updateBlogPost(
 }
 
 export async function checkBlogSlugAvailable(slug: string, excludeId?: string): Promise<boolean> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
+  const { supabase } = await requireAuth()
 
   let query = supabase
     .from('blog_posts')
@@ -203,25 +164,7 @@ export async function checkBlogSlugAvailable(slug: string, excludeId?: string): 
 }
 
 export async function getBlogPost(id: string): Promise<BlogPost> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('blog_posts')
@@ -237,25 +180,7 @@ export async function getBlogPost(id: string): Promise<BlogPost> {
 }
 
 export async function deleteBlogPost(id: string): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase.from('blog_posts').delete().eq('id', id)
 
@@ -271,25 +196,7 @@ export async function getContentQueue(filters?: {
   status?: string
   limit?: number
 }): Promise<ContentQueue[]> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   let query = supabase.from('content_queue').select('*')
 
@@ -326,25 +233,7 @@ export async function createSocialContent(contentData: {
   scheduled_for?: string
   source_content_id?: string
 }): Promise<ContentQueue> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('content_queue')
@@ -363,25 +252,7 @@ export async function createSocialContent(contentData: {
 }
 
 export async function approveSocialContent(id: string): Promise<ContentQueue> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('content_queue')
@@ -398,25 +269,7 @@ export async function approveSocialContent(id: string): Promise<ContentQueue> {
 }
 
 export async function rejectSocialContent(id: string): Promise<ContentQueue> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { data, error } = await supabase
     .from('content_queue')
@@ -441,25 +294,7 @@ export async function updateSocialContent(
     media_urls?: string[]
   }
 ): Promise<ContentQueue> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Only allow updating known safe fields
   const safeUpdate: Record<string, unknown> = {}
@@ -483,25 +318,7 @@ export async function updateSocialContent(
 }
 
 export async function deleteSocialContent(id: string): Promise<void> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase.from('content_queue').delete().eq('id', id)
 
@@ -514,25 +331,7 @@ export async function rescheduleSocialContent(
   id: string,
   scheduledFor: string
 ): Promise<ContentQueue> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   // Atomically reschedule and auto-approve drafts in a single update
   // First try to update drafts (sets status to approved)
@@ -572,25 +371,7 @@ export async function getContentCalendar(
   blogPosts: BlogPost[]
   socialContent: ContentQueue[]
 }> {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error('Authentication required')
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  const { supabase } = await requireAdmin()
 
   const [blogResult, socialResult] = await Promise.all([
     supabase

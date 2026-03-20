@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Lessons" };
@@ -9,6 +10,10 @@ export default async function LessonsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: modules } = await supabase
     .from("modules")
     .select("*, lessons(*)")
@@ -18,13 +23,13 @@ export default async function LessonsPage() {
   const { data: progress } = await supabase
     .from("lesson_progress")
     .select("lesson_id, completed")
-    .eq("user_id", user!.id);
+    .eq("user_id", user.id);
 
   // Fetch user's active purchases to gate access
   const { data: purchases } = await supabase
     .from("purchases")
     .select("product_id")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
     .eq("status", "active");
 
   const purchasedProductIds = new Set(

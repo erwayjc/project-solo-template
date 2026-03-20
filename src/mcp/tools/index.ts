@@ -20,10 +20,13 @@ import { tools as mcpManagementTools } from './mcp-management'
 import { tools as testimonialTools } from './testimonials'
 import { tools as memoryTools } from './memory'
 import { tools as customPagesTools } from './custom-pages'
+import { tools as pageTemplateTools } from './page-templates'
 import { tools as funnelTools } from './funnels'
 import { tools as agentRunsTools } from './agent-runs'
 import { tools as goalsTools } from './goals'
 import { tools as schedulingTools } from './scheduling'
+import { tools as introspectionTools } from './introspection'
+import { tools as resendApiTools } from './resend-api'
 
 /**
  * Flat array of every internal tool, ordered by domain.
@@ -45,10 +48,13 @@ const allTools: ToolDefinition[] = [
   ...testimonialTools,
   ...memoryTools,
   ...customPagesTools,
+  ...pageTemplateTools,
   ...funnelTools,
   ...agentRunsTools,
   ...goalsTools,
   ...schedulingTools,
+  ...introspectionTools,
+  ...resendApiTools,
 ]
 
 /**

@@ -1,6 +1,16 @@
 import Link from "next/link";
 
-export function PublicHeader() {
+interface WebsitePage {
+  slug: string;
+  title: string;
+  render_mode: string;
+}
+
+interface PublicHeaderProps {
+  pages?: WebsitePage[];
+}
+
+export function PublicHeader({ pages = [] }: PublicHeaderProps) {
   return (
     <header className="border-b bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -14,6 +24,19 @@ export function PublicHeader() {
           >
             Blog
           </Link>
+          {pages.map((page) => (
+            <Link
+              key={page.slug}
+              href={
+                page.render_mode === "custom"
+                  ? `/p/${page.slug}`
+                  : `/pages/${page.slug}`
+              }
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              {page.title}
+            </Link>
+          ))}
           <Link
             href="/sales"
             className="text-sm text-gray-600 hover:text-gray-900"

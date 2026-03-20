@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { useMemo } from "react";
 
 interface CalendarItem {
   id: string;
@@ -35,32 +34,25 @@ export function CalendarView({
   const displayMonth = month ?? now.getMonth() + 1;
   const displayYear = year ?? now.getFullYear();
 
-  const { days, startDay, monthLabel } = useMemo(() => {
-    const firstDay = new Date(displayYear, displayMonth - 1, 1);
-    const lastDay = new Date(displayYear, displayMonth, 0);
-    return {
-      days: lastDay.getDate(),
-      startDay: firstDay.getDay(),
-      monthLabel: firstDay.toLocaleString("default", {
-        month: "long",
-        year: "numeric",
-      }),
-    };
-  }, [displayMonth, displayYear]);
+  const firstDay = new Date(displayYear, displayMonth - 1, 1);
+  const lastDay = new Date(displayYear, displayMonth, 0);
+  const days = lastDay.getDate();
+  const startDay = firstDay.getDay();
+  const monthLabel = firstDay.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
 
-  const itemsByDate = useMemo(() => {
-    const map = new Map<string, CalendarItem[]>();
-    for (const item of items) {
-      const key = item.date.slice(0, 10);
-      const existing = map.get(key);
-      if (existing) {
-        existing.push(item);
-      } else {
-        map.set(key, [item]);
-      }
+  const itemsByDate = new Map<string, CalendarItem[]>();
+  for (const item of items) {
+    const key = item.date.slice(0, 10);
+    const existing = itemsByDate.get(key);
+    if (existing) {
+      existing.push(item);
+    } else {
+      itemsByDate.set(key, [item]);
     }
-    return map;
-  }, [items]);
+  }
 
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
